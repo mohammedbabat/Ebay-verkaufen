@@ -108,6 +108,10 @@
   .sortbar .arrow{font-size:9px;margin-left:2px;}
   .gewinn-pos{color:var(--green);font-weight:600;}
   .gewinn-neg{color:var(--red);font-weight:600;}
+  .quelle-badge{
+    font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:10px;
+    background:#EFEDE7;color:var(--muted);border:1px solid var(--line);
+  }
 </style>
 </head>
 <body>
@@ -156,6 +160,7 @@
           <th></th>
           <th>Bild</th>
           <th class="sortbar" data-sort="artikel_nummer">Artikel-Nr <span class="arrow"></span></th>
+          <th class="sortbar" data-sort="quelle">Quelle <span class="arrow"></span></th>
           <th>Beschreibung</th>
           <th class="sortbar" data-sort="bestand">Bestand <span class="arrow"></span></th>
           <th class="sortbar" data-sort="ebay_preis">Ebay-Preis <span class="arrow"></span></th>
@@ -186,7 +191,7 @@ let sortRichtung = 1; // 1 = aufsteigend, -1 = absteigend
 
 function zeigeFehler(msg){
   document.getElementById('tableBody').innerHTML =
-    `<tr><td colspan="9" class="empty-msg" style="color:#C1483F;">${msg}</td></tr>`;
+    `<tr><td colspan="10" class="empty-msg" style="color:#C1483F;">${msg}</td></tr>`;
 }
 
 try {
@@ -275,8 +280,8 @@ function renderTabelle(){
     let va, vb;
     if(sortSpalte === '_gewinn'){
       va = gewinn(a); vb = gewinn(b);
-    } else if(sortSpalte === 'artikel_nummer'){
-      va = a.artikel_nummer || ''; vb = b.artikel_nummer || '';
+    } else if(sortSpalte === 'artikel_nummer' || sortSpalte === 'quelle'){
+      va = a[sortSpalte] || ''; vb = b[sortSpalte] || '';
     } else {
       va = Number(a[sortSpalte]); vb = Number(b[sortSpalte]);
     }
@@ -289,7 +294,7 @@ function renderTabelle(){
 
   const body = document.getElementById('tableBody');
   if(gefiltert.length === 0){
-    body.innerHTML = '<tr><td colspan="9" class="empty-msg">Keine Produkte gefunden.</td></tr>';
+    body.innerHTML = '<tr><td colspan="10" class="empty-msg">Keine Produkte gefunden.</td></tr>';
     return;
   }
 
@@ -301,11 +306,13 @@ function renderTabelle(){
     const g = gewinn(p);
     const gewinnHtml = g === null ? '—' :
       `<span class="${g >= 0 ? 'gewinn-pos' : 'gewinn-neg'}">${g >= 0 ? '+' : ''}${g.toFixed(2).replace('.', ',')} €</span>`;
+    const quelleHtml = p.quelle ? `<span class="quelle-badge">${escapeHtml(p.quelle)}</span>` : '—';
     return `
     <tr onclick="location.href='produkte.html?id=${p.id}'">
       <td><span class="dot ${bestandsKlasse(p.bestand)}"></span></td>
       <td>${bildHtml}</td>
       <td class="art-cell">${escapeHtml(p.artikel_nummer||'—')}</td>
+      <td>${quelleHtml}</td>
       <td>${escapeHtml(p.beschreibung||'—').split('\\n')[0].slice(0,70)}</td>
       <td class="price">${p.bestand ?? '—'}</td>
       <td class="price">${fmtPreis(p.ebay_preis)}</td>
@@ -346,14 +353,14 @@ document.getElementById('filterRow').addEventListener('click', (e)=>{
 });
 
 document.getElementById('exportBtn').addEventListener('click', ()=>{
-  const kopfzeile = ['Artikel Nummer','EAN Nummer','Produktbeschreibung','Einkaufspreis','Menge','Lifewrkosten','Endeinkaufpreis','Ebay-Verkaufpreis','Amazon-Verkaufpreis','Bestand'];
+  const kopfzeile = ['Artikel Nummer','Quelle','EAN Nummer','Produktbeschreibung','Einkaufspreis','Menge','Lifewrkosten','Endeinkaufpreis','Ebay-Verkaufpreis','Amazon-Verkaufpreis','Bestand'];
   const csvEscape = (v)=>{
     if(v === null || v === undefined) v = '';
     v = String(v).replace(/"/g,'""');
     return `"${v}"`;
   };
   const zeilen = produkte.map(p => [
-    p.artikel_nummer, p.ean_nummer, p.beschreibung, p.einkaufspreis, p.menge,
+    p.artikel_nummer, p.quelle, p.ean_nummer, p.beschreibung, p.einkaufspreis, p.menge,
     p.lifewrkosten, p.endeinkaufspreis, p.ebay_preis, p.amazon_preis, p.bestand
   ].map(csvEscape).join(';'));
   const csv = '\uFEFF' + kopfzeile.map(csvEscape).join(';') + '\n' + zeilen.join('\n');

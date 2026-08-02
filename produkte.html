@@ -121,13 +121,14 @@
   .dot.low{background:var(--red);}
   .dot.mid{background:var(--amber);}
   .dot.good{background:var(--green);}
-  .field input, .field textarea{
+  .field input, .field textarea, .field select{
     width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:6px;
     font-family:var(--sans);font-size:14px;background:#FBFBFA;color:var(--text);
   }
+  .field select{cursor:pointer;}
   .field.mono input{font-family:var(--mono);}
   .field textarea{min-height:90px;resize:vertical;}
-  .field input:focus, .field textarea:focus{outline:2px solid var(--teal);outline-offset:1px;border-color:var(--teal);}
+  .field input:focus, .field textarea:focus, .field select:focus{outline:2px solid var(--teal);outline-offset:1px;border-color:var(--teal);}
 
   .actions{display:flex;gap:10px;margin-top:6px;}
   .btn{
@@ -208,6 +209,12 @@ const SUPABASE_ANON_KEY = "sb_publishable_BHyuPLdhMIV2f3n1roJYcQ_N2V_rxsl";
 /* ==================================================== */
 
 const BUCKET = "produktbilder";
+const QUELLEN = [
+  {value:'', label:'— nicht ausgewählt —'},
+  {value:'AB', label:'AB — Alibaba'},
+  {value:'AE', label:'AE — AliExpress'},
+  {value:'TE', label:'TE — Temu'},
+];
 let supabaseClient = null;
 let produkte = [];
 let activeId = null;   // id des aktuell geöffneten Produkts, oder "new"
@@ -263,6 +270,7 @@ try {
 const FIELDS = [
   {key:'artikel_nummer', label:'Artikel Nummer', mono:true},
   {key:'ean_nummer', label:'EAN Nummer', mono:true},
+  {key:'quelle', label:'Einkaufsquelle'},
   {key:'einkaufspreis', label:'Einkaufspreis'},
   {key:'menge', label:'Menge'},
   {key:'lifewrkosten', label:'Lifewrkosten', mono:true},
@@ -397,6 +405,17 @@ function renderDetail(p){
   const panel = document.getElementById('detailPanel');
 
   const fieldsHtml = FIELDS.map(f=>{
+    if(f.key === 'quelle'){
+      const optionsHtml = QUELLEN.map(q =>
+        `<option value="${q.value}" ${p.quelle===q.value?'selected':''}>${escapeHtml(q.label)}</option>`
+      ).join('');
+      return `
+        <div class="field">
+          <label>${f.label}</label>
+          <select id="f_quelle">${optionsHtml}</select>
+        </div>
+      `;
+    }
     if(f.key === 'bestand'){
       return `
         <div class="field mono">
