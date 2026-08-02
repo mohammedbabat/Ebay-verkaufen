@@ -3,14 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Produkt-Lager</title>
+<title>Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --ink:#1E2A38;
-    --ink-2:#28384A;
     --paper:#F4F4F1;
     --card:#FFFFFF;
     --line:#DDDCD5;
@@ -20,423 +19,115 @@
     --teal-dark:#2E5E5E;
     --amber:#D98E3B;
     --red:#C1483F;
-    --mono: 'IBM Plex Mono', monospace;
-    --sans: 'IBM Plex Sans', sans-serif;
+    --mono:'IBM Plex Mono', monospace;
+    --sans:'IBM Plex Sans', sans-serif;
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:var(--sans);background:var(--paper);color:var(--text);}
-
-  /* ---- Config banner (shows until URL/Key are set) ---- */
-  #configBanner{
-    display:none;
-    background:var(--red);color:#fff;padding:12px 20px;font-size:14px;
-  }
-  #configBanner code{background:rgba(255,255,255,.2);padding:2px 6px;border-radius:4px;}
-
   header{
-    background:var(--ink);
-    color:#fff;
-    padding:18px 28px;
-    display:flex;
-    align-items:baseline;
-    justify-content:space-between;
+    background:var(--ink);color:#fff;padding:28px 32px;
     border-bottom:3px solid var(--teal);
   }
-  header .brand{display:flex;align-items:baseline;gap:10px;}
-  header h1{font-size:19px;margin:0;font-weight:600;letter-spacing:.3px;}
-  header .tag{font-family:var(--mono);font-size:11px;color:var(--teal);letter-spacing:1px;text-transform:uppercase;}
-  header .count{font-family:var(--mono);font-size:13px;color:#B9C3CC;}
+  header h1{margin:0;font-size:22px;font-weight:600;}
+  header p{margin:6px 0 0 0;font-family:var(--mono);font-size:12px;color:#9FB0BE;letter-spacing:.5px;text-transform:uppercase;}
 
-  .layout{
-    display:grid;
-    grid-template-columns: 380px 1fr;
-    min-height:calc(100vh - 62px);
+  .grid{
+    max-width:900px;margin:36px auto;padding:0 24px;
+    display:grid;grid-template-columns:repeat(auto-fit, minmax(280px,1fr));gap:20px;
   }
-  @media (max-width: 860px){
-    .layout{grid-template-columns:1fr;}
+  .lager-card{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:24px;text-decoration:none;color:var(--text);display:block;
+    transition:.15s transform, .15s border-color;
   }
-
-  /* ---- Left: list ---- */
-  .list-panel{
-    background:var(--ink-2);
-    color:#fff;
-    padding:18px;
-    overflow-y:auto;
+  .lager-card:hover{border-color:var(--teal);transform:translateY(-2px);}
+  .lager-card .label{
+    font-family:var(--mono);font-size:11px;color:var(--teal-dark);letter-spacing:1px;
+    text-transform:uppercase;margin-bottom:6px;
   }
-  .search-row{display:flex;gap:8px;margin-bottom:14px;}
-  .search-row input{
-    flex:1;padding:9px 10px;border-radius:6px;border:1px solid #3E4E60;
-    background:#22303F;color:#fff;font-family:var(--sans);font-size:13px;
-  }
-  .search-row input::placeholder{color:#8494A3;}
-  .btn-new{
-    background:var(--teal);color:#fff;border:none;border-radius:6px;
-    padding:9px 14px;font-family:var(--sans);font-weight:600;font-size:13px;
-    cursor:pointer;white-space:nowrap;
-  }
-  .btn-new:hover{background:var(--teal-dark);}
-
-  .prod-item{
-    background:#22303F;border:1px solid #35455A;border-radius:8px;
-    padding:12px;margin-bottom:8px;cursor:pointer;transition:.12s border-color;
-    position:relative;
-  }
-  .prod-item:hover{border-color:var(--teal);}
-  .prod-item.active{border-color:var(--amber);background:#2B3B4E;}
-  .prod-item .art{font-family:var(--mono);font-size:12px;color:var(--amber);letter-spacing:.5px;}
-  .prod-item .desc{font-size:13px;margin-top:4px;color:#E4E8EC;line-height:1.35;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-  .prod-item .meta{display:flex;justify-content:space-between;margin-top:8px;font-family:var(--mono);font-size:11px;color:#8494A3;}
-  .stock-tag{
-    font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:10px;
-    background:#3E7C7C33;color:#7FCFCF;border:1px solid #3E7C7C66;
-  }
-  .stock-tag.low{background:#C1483F33;color:#FF9D93;border-color:#C1483F66;}
-  .empty-msg{color:#8494A3;font-size:13px;text-align:center;padding:30px 10px;}
-
-  /* ---- Right: detail/edit ---- */
-  .detail-panel{padding:28px;overflow-y:auto;}
-  .placeholder{
-    color:var(--muted);font-size:14px;height:100%;
-    display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;
-    padding-top:60px;
-  }
-  .placeholder .big{font-size:38px;}
-
-  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:22px;margin-bottom:18px;}
-  .card h2{font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:0 0 16px 0;font-weight:600;}
-
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-  .field{margin-bottom:14px;}
-  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600;}
-  .field input, .field textarea{
-    width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:6px;
-    font-family:var(--sans);font-size:14px;background:#FBFBFA;color:var(--text);
-  }
-  .field.mono input{font-family:var(--mono);}
-  .field textarea{min-height:90px;resize:vertical;}
-  .field input:focus, .field textarea:focus{outline:2px solid var(--teal);outline-offset:1px;border-color:var(--teal);}
-
-  .actions{display:flex;gap:10px;margin-top:6px;}
-  .btn{
-    padding:10px 18px;border-radius:6px;border:none;font-family:var(--sans);
-    font-weight:600;font-size:13px;cursor:pointer;
-  }
-  .btn-save{background:var(--teal);color:#fff;}
-  .btn-save:hover{background:var(--teal-dark);}
-  .btn-delete{background:transparent;color:var(--red);border:1px solid var(--red);}
-  .btn-delete:hover{background:var(--red);color:#fff;}
-  .btn-cancel{background:transparent;color:var(--muted);border:1px solid var(--line);}
-
-  /* ---- Images ---- */
-  .img-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(120px,1fr));gap:12px;margin-bottom:14px;}
-  .img-thumb{position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--line);aspect-ratio:1;background:#EEECE6;}
-  .img-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
-  .img-thumb .del-img{
-    position:absolute;top:5px;right:5px;background:rgba(24,24,24,.75);color:#fff;
-    border:none;border-radius:5px;width:24px;height:24px;cursor:pointer;font-size:14px;line-height:1;
-  }
-  .img-thumb .del-img:hover{background:var(--red);}
-  .upload-box{
-    border:2px dashed var(--line);border-radius:8px;padding:18px;text-align:center;
-    color:var(--muted);font-size:13px;cursor:pointer;
-  }
-  .upload-box:hover{border-color:var(--teal);color:var(--teal);}
-  .upload-box input{display:none;}
-  .status-msg{font-size:12px;margin-top:8px;color:var(--muted);}
-  .no-images{color:var(--muted);font-size:13px;padding:10px 0;}
+  .lager-card h2{margin:0 0 16px 0;font-size:19px;}
+  .stat-row{display:flex;gap:22px;}
+  .stat{display:flex;flex-direction:column;}
+  .stat .num{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--ink);}
+  .stat .num.low{color:var(--red);}
+  .stat .lbl{font-size:11px;color:var(--muted);margin-top:2px;}
+  .go{margin-top:18px;font-size:13px;color:var(--teal-dark);font-weight:600;}
+  .err{color:var(--red);font-size:13px;margin-top:10px;}
 </style>
 </head>
 <body>
 
-<div id="configBanner">
-  ⚠ Supabase ist noch nicht verbunden. Öffne diese Datei im Texteditor und trage
-  <code>SUPABASE_URL</code> und <code>SUPABASE_ANON_KEY</code> ganz oben im &lt;script&gt;-Bereich ein.
-</div>
-
 <header>
-  <div class="brand">
-    <h1>Produkt-Lager</h1>
-    <span class="tag">Inventar &amp; Bilder</span>
-  </div>
-  <span class="count" id="countLabel">— Artikel</span>
+  <h1>Dashboard</h1>
+  <p>Übersicht deiner Produkt-Lager</p>
 </header>
 
-<div class="layout">
-  <div class="list-panel">
-    <div class="search-row">
-      <input type="text" id="searchInput" placeholder="Suche: Artikel-Nr, EAN, Text …">
-      <button class="btn-new" id="newBtn">+ Neu</button>
-    </div>
-    <div id="prodList"></div>
-  </div>
-
-  <div class="detail-panel" id="detailPanel">
-    <div class="placeholder">
-      <div class="big">📦</div>
-      <div>Wähle links ein Produkt aus<br>oder lege ein neues an.</div>
-    </div>
-  </div>
-</div>
+<div class="grid" id="grid"></div>
 
 <script>
-/* ================= KONFIGURATION ==================
-   Trage hier deine Supabase-Projektdaten ein.
-   Zu finden in Supabase: Project Settings -> API
-==================================================== */
-const SUPABASE_URL = "DEINE_SUPABASE_URL_HIER";
-const SUPABASE_ANON_KEY = "DEIN_SUPABASE_ANON_KEY_HIER";
-/* ==================================================== */
-
-const BUCKET = "produktbilder";
-let supabase = null;
-let produkte = [];
-let activeId = null;   // id des aktuell geöffneten Produkts, oder "new"
-
-function zeigeFehler(msg){
-  document.getElementById('countLabel').textContent = 'Fehler';
-  document.getElementById('prodList').innerHTML =
-    '<div class="empty-msg" style="color:#FF9D93;">' + msg + '</div>';
-}
-
-try {
-  if (typeof window.supabase === 'undefined') {
-    throw new Error('Supabase-Bibliothek konnte nicht geladen werden. Prüfe, ob ein VPN, Adblocker oder eine Browser-Erweiterung die Verbindung blockiert.');
+/* =========== KONFIGURATION ===========
+   Trage hier für JEDES Lager URL, Key, Dateiname und Titel ein.
+   Der "file"-Wert muss exakt dem Dateinamen der jeweiligen App
+   entsprechen (z.B. "lager1.html").
+======================================= */
+const LAGER = [
+  {
+    titel: "Lager 1",
+    datei: "lager1.html",
+    url: "DEINE_SUPABASE_URL_HIER",
+    key: "DEIN_SUPABASE_PUBLISHABLE_KEY_HIER"
+  },
+  {
+    titel: "Lager 2",
+    datei: "lager2.html",
+    url: "https://nrsmzonjqspnsfbhvaus.supabase.co",
+    key: "sb_publishable_BHyuPLdhMIV2f3n1roJYcQ_N2V_rxsl"
   }
-  const configured = !SUPABASE_URL.startsWith("DEINE_") && !SUPABASE_ANON_KEY.startsWith("DEIN_");
-  if (configured) {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  } else {
-    document.getElementById('configBanner').style.display = 'block';
-  }
-} catch (err) {
-  console.error(err);
-  zeigeFehler(err.message);
-}
-
-const FIELDS = [
-  {key:'artikel_nummer', label:'Artikel Nummer', mono:true},
-  {key:'ean_nummer', label:'EAN Nummer', mono:true},
-  {key:'einkaufspreis', label:'Einkaufspreis'},
-  {key:'menge', label:'Menge'},
-  {key:'lifewrkosten', label:'Lifewrkosten', mono:true},
-  {key:'endeinkaufspreis', label:'Endeinkaufpreis', mono:true},
-  {key:'ebay_preis', label:'Ebay-Verkaufpreis', mono:true},
-  {key:'amazon_preis', label:'Amazon-Verkaufpreis', mono:true},
-  {key:'bestand', label:'Bestand', mono:true},
 ];
+/* ====================================== */
 
-async function loadProdukte(){
-  if(!supabase) return;
+const grid = document.getElementById('grid');
+
+async function ladeKarte(lager){
+  const card = document.createElement('a');
+  card.className = 'lager-card';
+  card.href = lager.datei;
+  card.innerHTML = `
+    <div class="label">Produkt-Lager</div>
+    <h2>${lager.titel}</h2>
+    <div class="stat-row" id="stats-${lager.datei}">
+      <div class="stat"><span class="num">…</span><span class="lbl">lädt</span></div>
+    </div>
+    <div class="go">Öffnen →</div>
+  `;
+  grid.appendChild(card);
+
+  const configured = !lager.url.startsWith("DEINE_") && !lager.key.startsWith("DEIN_");
+  const statsEl = card.querySelector(`#stats-${lager.datei}`);
+  if(!configured){
+    statsEl.innerHTML = '<div class="err">Noch nicht konfiguriert</div>';
+    return;
+  }
+
   try {
-    const {data, error} = await supabase.from('produkte').select('*').order('created_at', {ascending:false});
-    if(error){ console.error(error); zeigeFehler('Datenbankfehler: ' + error.message); return; }
-    produkte = data || [];
-    renderList();
+    const client = window.supabase.createClient(lager.url, lager.key);
+    const { count, error } = await client.from('produkte').select('*', {count:'exact', head:true});
+    if(error) throw error;
+
+    const { data: bestandData } = await client.from('produkte').select('bestand');
+    const niedrig = (bestandData||[]).filter(r => r.bestand !== null && Number(r.bestand) <= 5).length;
+
+    statsEl.innerHTML = `
+      <div class="stat"><span class="num">${count ?? 0}</span><span class="lbl">Artikel</span></div>
+      <div class="stat"><span class="num ${niedrig>0?'low':''}">${niedrig}</span><span class="lbl">Niedriger Bestand</span></div>
+    `;
   } catch(err){
     console.error(err);
-    zeigeFehler('Verbindung fehlgeschlagen: ' + err.message);
+    statsEl.innerHTML = `<div class="err">Verbindung fehlgeschlagen</div>`;
   }
 }
 
-function renderList(){
-  const term = document.getElementById('searchInput').value.trim().toLowerCase();
-  const listEl = document.getElementById('prodList');
-  const filtered = produkte.filter(p=>{
-    if(!term) return true;
-    return [p.artikel_nummer, p.ean_nummer, p.beschreibung].join(' ').toLowerCase().includes(term);
-  });
-  document.getElementById('countLabel').textContent = produkte.length + ' Artikel';
-
-  if(filtered.length === 0){
-    listEl.innerHTML = '<div class="empty-msg">Keine Produkte gefunden.</div>';
-    return;
-  }
-
-  listEl.innerHTML = filtered.map(p=>{
-    const low = (p.bestand !== null && p.bestand !== undefined && Number(p.bestand) <= 5);
-    return `
-      <div class="prod-item ${p.id===activeId?'active':''}" onclick="openProdukt('${p.id}')">
-        <div class="art">${escapeHtml(p.artikel_nummer||'—')}</div>
-        <div class="desc">${escapeHtml(p.beschreibung||'(keine Beschreibung)')}</div>
-        <div class="meta">
-          <span>${(p.bilder||[]).length} Bild(er)</span>
-          <span class="stock-tag ${low?'low':''}">Bestand: ${p.bestand ?? '—'}</span>
-        </div>
-      </div>`;
-  }).join('');
-}
-
-function escapeHtml(str){
-  if(str===null||str===undefined) return '';
-  return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-window.openProdukt = function(id){
-  activeId = id;
-  renderList();
-  const p = produkte.find(x=>x.id===id);
-  renderDetail(p);
-}
-
-document.getElementById('newBtn').addEventListener('click', ()=>{
-  activeId = 'new';
-  renderList();
-  renderDetail({
-    id:null, artikel_nummer:'', ean_nummer:'', beschreibung:'',
-    einkaufspreis:'', menge:'', lifewrkosten:'', endeinkaufspreis:'',
-    ebay_preis:'', amazon_preis:'', bestand:'', bilder:[]
-  });
-});
-
-document.getElementById('searchInput').addEventListener('input', renderList);
-
-function renderDetail(p){
-  const isNew = !p.id;
-  const panel = document.getElementById('detailPanel');
-
-  const fieldsHtml = FIELDS.map(f=>`
-    <div class="field ${f.mono?'mono':''}">
-      <label>${f.label}</label>
-      <input type="text" id="f_${f.key}" value="${escapeHtml(p[f.key])}">
-    </div>
-  `).join('');
-
-  panel.innerHTML = `
-    <div class="card">
-      <h2>Bilder</h2>
-      <div class="img-grid" id="imgGrid"></div>
-      <label class="upload-box" id="uploadBox">
-        + Bild hinzufügen (klicken oder mehrere auswählen)
-        <input type="file" id="fileInput" accept="image/*" multiple ${isNew?'disabled':''}>
-      </label>
-      ${isNew ? '<div class="status-msg">Speichere das Produkt zuerst, dann kannst du Bilder hochladen.</div>' : ''}
-      <div class="status-msg" id="uploadStatus"></div>
-    </div>
-
-    <div class="card">
-      <h2>${isNew ? 'Neues Produkt' : 'Produktdaten bearbeiten'}</h2>
-      <div class="field">
-        <label>Produktbeschreibung</label>
-        <textarea id="f_beschreibung">${escapeHtml(p.beschreibung)}</textarea>
-      </div>
-      <div class="grid2">${fieldsHtml}</div>
-      <div class="actions">
-        <button class="btn btn-save" id="saveBtn">${isNew?'Anlegen':'Speichern'}</button>
-        ${!isNew ? '<button class="btn btn-delete" id="deleteBtn">Löschen</button>' : ''}
-      </div>
-    </div>
-  `;
-
-  renderImages(p.bilder||[], p.id);
-
-  document.getElementById('saveBtn').addEventListener('click', ()=>saveProdukt(p));
-  if(!isNew){
-    document.getElementById('deleteBtn').addEventListener('click', ()=>deleteProdukt(p.id));
-    document.getElementById('fileInput').addEventListener('change', (e)=>uploadImages(e, p.id));
-  }
-}
-
-function renderImages(bilder, produktId){
-  const grid = document.getElementById('imgGrid');
-  if(!bilder || bilder.length===0){
-    grid.innerHTML = '<div class="no-images">Noch keine Bilder hochgeladen.</div>';
-    return;
-  }
-  grid.innerHTML = bilder.map(url=>`
-    <div class="img-thumb">
-      <img src="${url}" loading="lazy">
-      <button class="del-img" onclick="deleteImage('${produktId}', '${url}')" title="Bild löschen">✕</button>
-    </div>
-  `).join('');
-}
-
-async function saveProdukt(existing){
-  const payload = {};
-  FIELDS.forEach(f=>{
-    let val = document.getElementById('f_'+f.key).value.trim();
-    payload[f.key] = val === '' ? null : val;
-  });
-  // Zahlenfelder konvertieren
-  ['lifewrkosten','endeinkaufspreis','ebay_preis','amazon_preis','bestand'].forEach(k=>{
-    if(payload[k] !== null){
-      const num = Number(payload[k].toString().replace(',', '.'));
-      payload[k] = isNaN(num) ? null : num;
-    }
-  });
-  payload.beschreibung = document.getElementById('f_beschreibung').value.trim();
-  payload.updated_at = new Date().toISOString();
-
-  if(!existing.id){
-    const {data, error} = await supabase.from('produkte').insert(payload).select().single();
-    if(error){ alert('Fehler beim Anlegen: '+error.message); return; }
-    activeId = data.id;
-    await loadProdukte();
-    openProdukt(data.id);
-  } else {
-    const {error} = await supabase.from('produkte').update(payload).eq('id', existing.id);
-    if(error){ alert('Fehler beim Speichern: '+error.message); return; }
-    await loadProdukte();
-    openProdukt(existing.id);
-  }
-}
-
-async function deleteProdukt(id){
-  if(!confirm('Dieses Produkt wirklich löschen? Das kann nicht rückgängig gemacht werden.')) return;
-  const {error} = await supabase.from('produkte').delete().eq('id', id);
-  if(error){ alert('Fehler beim Löschen: '+error.message); return; }
-  activeId = null;
-  await loadProdukte();
-  document.getElementById('detailPanel').innerHTML = `
-    <div class="placeholder"><div class="big">📦</div><div>Wähle links ein Produkt aus<br>oder lege ein neues an.</div></div>`;
-}
-
-async function uploadImages(e, produktId){
-  const files = Array.from(e.target.files || []);
-  if(files.length===0) return;
-  const statusEl = document.getElementById('uploadStatus');
-  statusEl.textContent = 'Lade hoch …';
-
-  const p = produkte.find(x=>x.id===produktId);
-  const currentImgs = [...(p.bilder||[])];
-
-  for(const file of files){
-    const path = `${produktId}/${Date.now()}_${file.name}`;
-    const {error: upErr} = await supabase.storage.from(BUCKET).upload(path, file);
-    if(upErr){ statusEl.textContent = 'Fehler: '+upErr.message; continue; }
-    const {data: pub} = supabase.storage.from(BUCKET).getPublicUrl(path);
-    currentImgs.push(pub.publicUrl);
-  }
-
-  const {error: updErr} = await supabase.from('produkte').update({bilder: currentImgs}).eq('id', produktId);
-  if(updErr){ statusEl.textContent = 'Fehler beim Speichern der Bild-Liste: '+updErr.message; return; }
-
-  statusEl.textContent = 'Fertig hochgeladen.';
-  await loadProdukte();
-  openProdukt(produktId);
-}
-
-window.deleteImage = async function(produktId, url){
-  if(!confirm('Dieses Bild löschen?')) return;
-  const p = produkte.find(x=>x.id===produktId);
-  const newImgs = (p.bilder||[]).filter(u=>u!==url);
-
-  // Storage-Pfad aus der öffentlichen URL extrahieren
-  const marker = `/${BUCKET}/`;
-  const idx = url.indexOf(marker);
-  if(idx !== -1){
-    const path = url.substring(idx + marker.length);
-    await supabase.storage.from(BUCKET).remove([path]);
-  }
-
-  const {error} = await supabase.from('produkte').update({bilder: newImgs}).eq('id', produktId);
-  if(error){ alert('Fehler beim Löschen: '+error.message); return; }
-  await loadProdukte();
-  openProdukt(produktId);
-}
-
-// Start
-loadProdukte();
+LAGER.forEach(ladeKarte);
 </script>
 </body>
 </html>
