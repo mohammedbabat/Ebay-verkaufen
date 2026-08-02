@@ -337,6 +337,49 @@ window.aktualisiereBestandsAmpel = function(wert){
   dot.className = 'dot ' + bestandsKlasse(wert);
 }
 
+function zahlAusFeld(v){
+  if(v === null || v === undefined || v === '') return 0;
+  // falls Werte wie "0,95/7,95" oder "100/12" drinstehen, nur die erste Zahl nehmen
+  const erster = String(v).split('/')[0].trim().replace(',', '.');
+  const n = parseFloat(erster);
+  return isNaN(n) ? 0 : n;
+}
+
+window.berechneEndeinkaufpreis = function(){
+  const ekFeld = document.getElementById('f_einkaufspreis');
+  const mengeFeld = document.getElementById('f_menge');
+  const lwFeld = document.getElementById('f_lifewrkosten');
+  const endFeld = document.getElementById('f_endeinkaufspreis');
+  if(!ekFeld || !mengeFeld || !lwFeld || !endFeld) return;
+
+  const ek = zahlAusFeld(ekFeld.value);
+  const mengeRoh = zahlAusFeld(mengeFeld.value);
+  const menge = mengeRoh > 0 ? mengeRoh : 1;   // leere/ungültige Menge zählt als 1, nicht als 0
+  const lw = zahlAusFeld(lwFeld.value);
+
+  const ergebnis = ek * menge + lw;
+  endFeld.value = ergebnis.toFixed(2).replace('.', ',');
+  zeigeMengenHinweis();
+}
+
+window.zeigeMengenHinweis = function(){
+  const ekFeld = document.getElementById('f_einkaufspreis');
+  const hinweisEl = document.getElementById('mengenHinweis');
+  if(!ekFeld || !hinweisEl) return;
+  const teile = ekFeld.value.split('/').map(s=>s.trim()).filter(Boolean);
+  if(teile.length >= 2){
+    const einzelpreis = parseFloat(teile[0].replace(',', '.'));
+    const packpreis = parseFloat(teile[1].replace(',', '.'));
+    if(!isNaN(einzelpreis) && !isNaN(packpreis) && einzelpreis > 0){
+      hinweisEl.textContent = `Hinweis: ${teile[0]} € pro Stück einzeln, ${teile[1]} € im größeren Paket erkannt — es wird aktuell mit ${teile[0]} € gerechnet.`;
+    } else {
+      hinweisEl.textContent = '';
+    }
+  } else {
+    hinweisEl.textContent = '';
+  }
+}
+
 function escapeHtml(str){
   if(str===null||str===undefined) return '';
   return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -359,6 +402,24 @@ function renderDetail(p){
         <div class="field mono">
           <label><span class="dot" id="bestandDot"></span>Bestand</label>
           <input type="text" id="f_bestand" value="${escapeHtml(p.bestand)}" oninput="aktualisiereBestandsAmpel(this.value)">
+        </div>
+      `;
+    }
+    if(f.key === 'einkaufspreis' || f.key === 'menge' || f.key === 'lifewrkosten'){
+      const hinweisId = f.key === 'einkaufspreis' ? 'id="mengenHinweis"' : '';
+      return `
+        <div class="field ${f.mono?'mono':''}">
+          <label>${f.label}</label>
+          <input type="text" id="f_${f.key}" value="${escapeHtml(p[f.key])}" oninput="berechneEndeinkaufpreis()">
+          ${f.key === 'einkaufspreis' ? `<div class="status-msg" ${hinweisId}></div>` : ''}
+        </div>
+      `;
+    }
+    if(f.key === 'endeinkaufspreis'){
+      return `
+        <div class="field mono">
+          <label>Endeinkaufpreis <span style="font-weight:400;color:var(--muted);">(automatisch, editierbar)</span></label>
+          <input type="text" id="f_endeinkaufspreis" value="${escapeHtml(p.endeinkaufspreis)}">
         </div>
       `;
     }
@@ -398,6 +459,7 @@ function renderDetail(p){
 
   renderImages(p.bilder||[], p.id);
   aktualisiereBestandsAmpel(p.bestand);
+  zeigeMengenHinweis();
 
   document.getElementById('saveBtn').addEventListener('click', ()=>saveProdukt(p));
   if(!isNew){

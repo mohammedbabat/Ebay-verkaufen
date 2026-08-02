@@ -103,6 +103,11 @@
     font-size:12px;cursor:pointer;font-family:var(--sans);color:var(--text);
   }
   .filter-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .sortbar{cursor:pointer;user-select:none;}
+  .sortbar:hover{color:var(--ink);}
+  .sortbar .arrow{font-size:9px;margin-left:2px;}
+  .gewinn-pos{color:var(--green);font-weight:600;}
+  .gewinn-neg{color:var(--red);font-weight:600;}
 </style>
 </head>
 <body>
@@ -117,7 +122,10 @@
       <h1>Dashboard</h1><span class="tag">Produkt-Lager</span>
     </span>
   </div>
-  <a class="btn-manage" href="produkte.html">+ Produkte verwalten</a>
+  <div style="display:flex;gap:10px;">
+    <button class="btn-manage" id="exportBtn" style="background:var(--ink-2);">⬇ CSV Export</button>
+    <a class="btn-manage" href="produkte.html">+ Produkte verwalten</a>
+  </div>
 </header>
 
 <div class="wrap">
@@ -147,12 +155,13 @@
         <tr>
           <th></th>
           <th>Bild</th>
-          <th>Artikel-Nr</th>
+          <th class="sortbar" data-sort="artikel_nummer">Artikel-Nr <span class="arrow"></span></th>
           <th>Beschreibung</th>
-          <th>Bestand</th>
-          <th>Ebay-Preis</th>
-          <th>Amazon-Preis</th>
-          <th>Endeinkaufpreis</th>
+          <th class="sortbar" data-sort="bestand">Bestand <span class="arrow"></span></th>
+          <th class="sortbar" data-sort="ebay_preis">Ebay-Preis <span class="arrow"></span></th>
+          <th class="sortbar" data-sort="amazon_preis">Amazon-Preis <span class="arrow"></span></th>
+          <th class="sortbar" data-sort="endeinkaufspreis">Endeinkaufpreis <span class="arrow"></span></th>
+          <th class="sortbar" data-sort="_gewinn">Gewinn (Ebay) <span class="arrow"></span></th>
         </tr>
       </thead>
       <tbody id="tableBody"></tbody>
@@ -172,10 +181,12 @@ const SUPABASE_ANON_KEY = "sb_publishable_BHyuPLdhMIV2f3n1roJYcQ_N2V_rxsl";
 let supabaseClient = null;
 let produkte = [];
 let aktiverFilter = 'all';
+let sortSpalte = 'artikel_nummer';
+let sortRichtung = 1; // 1 = aufsteigend, -1 = absteigend
 
 function zeigeFehler(msg){
   document.getElementById('tableBody').innerHTML =
-    `<tr><td colspan="7" class="empty-msg" style="color:#C1483F;">${msg}</td></tr>`;
+    `<tr><td colspan="9" class="empty-msg" style="color:#C1483F;">${msg}</td></tr>`;
 }
 
 try {
@@ -211,6 +222,13 @@ function fmtPreis(v){
   if(v===null||v===undefined||v==='') return '—';
   const n = Number(v);
   return isNaN(n) ? escapeHtml(v) : n.toFixed(2).replace('.', ',') + ' €';
+}
+
+function gewinn(p){
+  const ebay = Number(p.ebay_preis);
+  const ek = Number(p.endeinkaufspreis);
+  if(isNaN(ebay) || isNaN(ek)) return null;
+  return ebay - ek;
 }
 
 async function laden(){
@@ -253,9 +271,25 @@ function renderTabelle(){
     return [p.artikel_nummer, p.ean_nummer, p.beschreibung].join(' ').toLowerCase().includes(term);
   });
 
+  gefiltert = gefiltert.slice().sort((a,b)=>{
+    let va, vb;
+    if(sortSpalte === '_gewinn'){
+      va = gewinn(a); vb = gewinn(b);
+    } else if(sortSpalte === 'artikel_nummer'){
+      va = a.artikel_nummer || ''; vb = b.artikel_nummer || '';
+    } else {
+      va = Number(a[sortSpalte]); vb = Number(b[sortSpalte]);
+    }
+    if(va === null || va === undefined || (typeof va === 'number' && isNaN(va))) va = sortRichtung === 1 ? Infinity : -Infinity;
+    if(vb === null || vb === undefined || (typeof vb === 'number' && isNaN(vb))) vb = sortRichtung === 1 ? Infinity : -Infinity;
+    if(va < vb) return -1 * sortRichtung;
+    if(va > vb) return 1 * sortRichtung;
+    return 0;
+  });
+
   const body = document.getElementById('tableBody');
   if(gefiltert.length === 0){
-    body.innerHTML = '<tr><td colspan="7" class="empty-msg">Keine Produkte gefunden.</td></tr>';
+    body.innerHTML = '<tr><td colspan="9" class="empty-msg">Keine Produkte gefunden.</td></tr>';
     return;
   }
 
@@ -264,6 +298,9 @@ function renderTabelle(){
     const bildHtml = erstesBild
       ? `<img class="thumb" src="${erstesBild}" loading="lazy">`
       : `<div class="thumb-placeholder">📦</div>`;
+    const g = gewinn(p);
+    const gewinnHtml = g === null ? '—' :
+      `<span class="${g >= 0 ? 'gewinn-pos' : 'gewinn-neg'}">${g >= 0 ? '+' : ''}${g.toFixed(2).replace('.', ',')} €</span>`;
     return `
     <tr onclick="location.href='produkte.html?id=${p.id}'">
       <td><span class="dot ${bestandsKlasse(p.bestand)}"></span></td>
@@ -274,10 +311,28 @@ function renderTabelle(){
       <td class="price">${fmtPreis(p.ebay_preis)}</td>
       <td class="price">${fmtPreis(p.amazon_preis)}</td>
       <td class="price">${fmtPreis(p.endeinkaufspreis)}</td>
+      <td class="price">${gewinnHtml}</td>
     </tr>
   `;
   }).join('');
+
+  document.querySelectorAll('.sortbar .arrow').forEach(el=>el.textContent='');
+  const aktiverHeader = document.querySelector(`.sortbar[data-sort="${sortSpalte}"] .arrow`);
+  if(aktiverHeader) aktiverHeader.textContent = sortRichtung === 1 ? '▲' : '▼';
 }
+
+document.querySelectorAll('.sortbar').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const spalte = th.dataset.sort;
+    if(sortSpalte === spalte){
+      sortRichtung *= -1;
+    } else {
+      sortSpalte = spalte;
+      sortRichtung = 1;
+    }
+    renderTabelle();
+  });
+});
 
 document.getElementById('searchInput').addEventListener('input', renderTabelle);
 
@@ -288,6 +343,29 @@ document.getElementById('filterRow').addEventListener('click', (e)=>{
   btn.classList.add('active');
   aktiverFilter = btn.dataset.f;
   renderTabelle();
+});
+
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  const kopfzeile = ['Artikel Nummer','EAN Nummer','Produktbeschreibung','Einkaufspreis','Menge','Lifewrkosten','Endeinkaufpreis','Ebay-Verkaufpreis','Amazon-Verkaufpreis','Bestand'];
+  const csvEscape = (v)=>{
+    if(v === null || v === undefined) v = '';
+    v = String(v).replace(/"/g,'""');
+    return `"${v}"`;
+  };
+  const zeilen = produkte.map(p => [
+    p.artikel_nummer, p.ean_nummer, p.beschreibung, p.einkaufspreis, p.menge,
+    p.lifewrkosten, p.endeinkaufspreis, p.ebay_preis, p.amazon_preis, p.bestand
+  ].map(csvEscape).join(';'));
+  const csv = '\uFEFF' + kopfzeile.map(csvEscape).join(';') + '\n' + zeilen.join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'produkte_export_' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 });
 
 laden();
