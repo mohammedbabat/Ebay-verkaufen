@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lagerplan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --ink:#1E2A38;
+    --ink-2:#28384A;
+    --paper:#F4F4F1;
+    --card:#FFFFFF;
+    --line:#DDDCD5;
+    --text:#22262B;
+    --muted:#6B7280;
+    --teal:#3E7C7C;
+    --teal-dark:#2E5E5E;
+    --amber:#D98E3B;
+    --red:#C1483F;
+    --green:#4C8C5B;
+    --mono:'IBM Plex Mono', monospace;
+    --sans:'IBM Plex Sans', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--sans);background:var(--paper);color:var(--text);}
+
+  header{
+    background:var(--ink);color:#fff;padding:22px 32px;
+    display:flex;align-items:center;justify-content:space-between;
+    border-bottom:3px solid var(--teal);flex-wrap:wrap;gap:10px;
+  }
+  header h1{margin:0;font-size:20px;font-weight:600;}
+  header .tag{font-family:var(--mono);font-size:11px;color:var(--teal);letter-spacing:1px;text-transform:uppercase;margin-left:10px;}
+  .back{font-family:var(--mono);font-size:12px;color:#B9C3CC;text-decoration:none;margin-right:16px;}
+  .back:hover{color:#fff;}
+  .btn-manage{
+    background:var(--teal);color:#fff;text-decoration:none;padding:10px 18px;
+    border-radius:6px;font-weight:600;font-size:13px;
+  }
+  .btn-manage:hover{background:var(--teal-dark);}
+
+  .wrap{max-width:1100px;margin:0 auto;padding:28px 24px 60px;}
+
+  .kpi-row{display:grid;grid-template-columns:repeat(auto-fit, minmax(140px,1fr));gap:16px;margin-bottom:28px;}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;}
+  .kpi .num{font-family:var(--mono);font-size:26px;font-weight:600;}
+  .kpi .lbl{font-size:12px;color:var(--muted);margin-top:4px;}
+  .kpi.total .num{color:var(--ink);}
+  .kpi.free .num{color:var(--green);}
+  .kpi.full .num{color:var(--red);}
+
+  .legende{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:18px;font-size:12px;color:var(--muted);align-items:center;}
+  .legende .sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:middle;}
+
+  .wand{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:24px;
+  }
+  .regal-zeile{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .regal-zeile:last-child{margin-bottom:0;}
+  .regal-label{
+    width:26px;flex-shrink:0;font-family:var(--mono);font-weight:600;color:var(--muted);
+    text-align:center;font-size:13px;
+  }
+  .plaetze{display:grid;grid-template-columns:repeat(10, 1fr);gap:8px;flex:1;}
+  .platz{
+    aspect-ratio:1;border-radius:8px;border:1.5px solid var(--line);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    cursor:pointer;padding:4px;text-align:center;transition:.12s transform;
+    background:#FAFAF8;
+  }
+  .platz:hover{transform:translateY(-2px);border-color:var(--ink);}
+  .platz.frei{background:#FAFAF8;}
+  .platz.frei .code{color:#C9C7BE;}
+  .platz.low{background:#C1483F1A;border-color:#C1483F55;}
+  .platz.mid{background:#D98E3B1A;border-color:#D98E3B55;}
+  .platz.good{background:#4C8C5B1A;border-color:#4C8C5B55;}
+  .platz.none-status{background:#EFEDE7;border-color:var(--line);}
+  .platz .code{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--muted);}
+  .platz .artnr{font-family:var(--mono);font-size:9px;color:var(--text);margin-top:2px;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+  .platz .bestand-zahl{font-size:11px;font-weight:700;margin-top:1px;}
+
+  @media (max-width:700px){
+    .plaetze{grid-template-columns:repeat(10, 1fr);gap:4px;}
+    .platz .artnr{display:none;}
+    .platz .code{font-size:8px;}
+  }
+
+  .empty-msg{color:var(--muted);font-size:13px;text-align:center;padding:30px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <span style="display:flex;align-items:baseline;flex-wrap:wrap;">
+      <a class="back" href="index.html">← Dashboard</a>
+      <h1>Lagerplan</h1><span class="tag">5 Regale × 10 Plätze</span>
+    </span>
+  </div>
+  <a class="btn-manage" href="produkte.html">+ Produkte verwalten</a>
+</header>
+
+<div class="wrap">
+
+  <div class="kpi-row" id="kpiRow">
+    <div class="kpi total"><div class="num">…</div><div class="lbl">Plätze gesamt</div></div>
+    <div class="kpi full"><div class="num">…</div><div class="lbl">Belegt</div></div>
+    <div class="kpi free"><div class="num">…</div><div class="lbl">Frei</div></div>
+  </div>
+
+  <div class="legende">
+    <span><span class="sw" style="background:#EFEDE7;border:1px solid var(--line);"></span>Frei</span>
+    <span><span class="sw" style="background:#C1483F55;"></span>Bestand kritisch (&lt; 3)</span>
+    <span><span class="sw" style="background:#D98E3B55;"></span>Bestand niedrig (3–5)</span>
+    <span><span class="sw" style="background:#4C8C5B55;"></span>Bestand ausreichend (&gt; 5)</span>
+  </div>
+
+  <div class="wand" id="wand"></div>
+
+</div>
+
+<script>
+/* ================= KONFIGURATION ==================
+   Gleiche Zugangsdaten wie in produkte.html eintragen.
+==================================================== */
+const SUPABASE_URL = "https://nrsmzonjqspnsfbhvaus.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_BHyuPLdhMIV2f3n1roJYcQ_N2V_rxsl";
+/* ==================================================== */
+
+let supabaseClient = null;
+let produkte = [];
+const REGALE = ['A','B','C','D','E'];
+const PLAETZE_PRO_REGAL = 10;
+
+function zeigeFehler(msg){
+  document.getElementById('wand').innerHTML =
+    `<div class="empty-msg" style="color:#C1483F;">${msg}</div>`;
+}
+
+try {
+  if (typeof window.supabase === 'undefined') {
+    throw new Error('Supabase-Bibliothek konnte nicht geladen werden. Prüfe VPN/Adblocker.');
+  }
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} catch(err){
+  console.error(err);
+  zeigeFehler(err.message);
+}
+
+function bestandsKlasse(wert){
+  if(wert === null || wert === undefined || wert === '') return 'none';
+  const b = Number(wert);
+  if(isNaN(b)) return 'none';
+  if(b < 3) return 'low';
+  if(b <= 5) return 'mid';
+  return 'good';
+}
+
+function escapeHtml(str){
+  if(str===null||str===undefined) return '';
+  return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function laden(){
+  if(!supabaseClient) return;
+  try {
+    const {data, error} = await supabaseClient.from('produkte').select('*');
+    if(error){ zeigeFehler('Datenbankfehler: ' + error.message); return; }
+    produkte = data || [];
+    renderWand();
+  } catch(err){
+    zeigeFehler('Verbindung fehlgeschlagen: ' + err.message);
+  }
+}
+
+function renderWand(){
+  const proPlatz = {};
+  produkte.forEach(p=>{
+    if(p.lagerplatz) proPlatz[p.lagerplatz] = p;
+  });
+
+  let belegt = 0;
+  const gesamt = REGALE.length * PLAETZE_PRO_REGAL;
+
+  const wandEl = document.getElementById('wand');
+  wandEl.innerHTML = REGALE.map(regal=>{
+    let zeile = `<div class="regal-zeile"><div class="regal-label">${regal}</div><div class="plaetze">`;
+    for(let n=1; n<=PLAETZE_PRO_REGAL; n++){
+      const code = regal + n;
+      const p = proPlatz[code];
+      if(p){
+        belegt++;
+        const klasse = bestandsKlasse(p.bestand);
+        zeile += `
+          <div class="platz ${klasse}${klasse==='none'?' none-status':''}" onclick="location.href='produkte.html?id=${p.id}'" title="${escapeHtml(p.artikel_nummer||'')}">
+            <span class="code">${code}</span>
+            <span class="artnr">${escapeHtml(p.artikel_nummer||'—')}</span>
+            <span class="bestand-zahl">${p.bestand ?? '—'}</span>
+          </div>`;
+      } else {
+        zeile += `
+          <div class="platz frei" onclick="location.href='produkte.html'" title="Platz ${code} ist frei">
+            <span class="code">${code}</span>
+          </div>`;
+      }
+    }
+    zeile += `</div></div>`;
+    return zeile;
+  }).join('');
+
+  const cards = document.querySelectorAll('#kpiRow .kpi .num');
+  cards[0].textContent = gesamt;
+  cards[1].textContent = belegt;
+  cards[2].textContent = gesamt - belegt;
+}
+
+laden();
+</script>
+</body>
+</html>

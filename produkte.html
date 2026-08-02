@@ -174,6 +174,7 @@
   </div>
   <span>
     <a class="back" href="index.html">← Dashboard</a>
+    <a class="back" href="lagerplan.html">Lagerplan</a>
     <span class="count" id="countLabel">— Artikel</span>
   </span>
 </header>
@@ -215,6 +216,16 @@ const QUELLEN = [
   {value:'AE', label:'AE — AliExpress'},
   {value:'TE', label:'TE — Temu'},
 ];
+
+function alleLagerplaetze(){
+  const plaetze = [];
+  for(const buchstabe of ['A','B','C','D','E']){
+    for(let n=1; n<=10; n++){
+      plaetze.push(buchstabe + n);
+    }
+  }
+  return plaetze;
+}
 let supabaseClient = null;
 let produkte = [];
 let activeId = null;   // id des aktuell geöffneten Produkts, oder "new"
@@ -271,6 +282,7 @@ const FIELDS = [
   {key:'artikel_nummer', label:'Artikel Nummer', mono:true},
   {key:'ean_nummer', label:'EAN Nummer', mono:true},
   {key:'quelle', label:'Einkaufsquelle'},
+  {key:'lagerplatz', label:'Lagerplatz'},
   {key:'einkaufspreis', label:'Einkaufspreis'},
   {key:'menge', label:'Menge'},
   {key:'lifewrkosten', label:'Lifewrkosten', mono:true},
@@ -345,6 +357,19 @@ window.aktualisiereBestandsAmpel = function(wert){
   dot.className = 'dot ' + bestandsKlasse(wert);
 }
 
+window.warnBeiBelegtemPlatz = function(){
+  const sel = document.getElementById('f_lagerplatz');
+  const warnung = document.getElementById('lagerplatzWarnung');
+  if(!sel || !warnung) return;
+  const gewaehlterText = sel.options[sel.selectedIndex].text;
+  if(gewaehlterText.includes('(belegt:')){
+    warnung.textContent = '⚠ Dieser Platz ist schon einem anderen Produkt zugewiesen.';
+    warnung.style.color = 'var(--red)';
+  } else {
+    warnung.textContent = '';
+  }
+}
+
 function zahlAusFeld(v){
   if(v === null || v === undefined || v === '') return 0;
   // falls Werte wie "0,95/7,95" oder "100/12" drinstehen, nur die erste Zahl nehmen
@@ -405,6 +430,27 @@ function renderDetail(p){
   const panel = document.getElementById('detailPanel');
 
   const fieldsHtml = FIELDS.map(f=>{
+    if(f.key === 'lagerplatz'){
+      const belegtVon = {};
+      produkte.forEach(other=>{
+        if(other.id !== p.id && other.lagerplatz){
+          belegtVon[other.lagerplatz] = other.artikel_nummer || other.id;
+        }
+      });
+      const optionsHtml = ['<option value="">— nicht zugewiesen —</option>']
+        .concat(alleLagerplaetze().map(platz=>{
+          const belegt = belegtVon[platz];
+          const label = belegt ? `${platz} (belegt: ${belegt})` : platz;
+          return `<option value="${platz}" ${p.lagerplatz===platz?'selected':''}>${escapeHtml(label)}</option>`;
+        })).join('');
+      return `
+        <div class="field">
+          <label>${f.label}</label>
+          <select id="f_lagerplatz" onchange="warnBeiBelegtemPlatz()">${optionsHtml}</select>
+          <div class="status-msg" id="lagerplatzWarnung"></div>
+        </div>
+      `;
+    }
     if(f.key === 'quelle'){
       const optionsHtml = QUELLEN.map(q =>
         `<option value="${q.value}" ${p.quelle===q.value?'selected':''}>${escapeHtml(q.label)}</option>`
