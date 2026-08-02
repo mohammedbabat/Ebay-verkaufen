@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Produkt scannen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0"></script>
+<style>
+  :root{
+    --ink:#1E2A38;
+    --ink-2:#28384A;
+    --paper:#F4F4F1;
+    --card:#FFFFFF;
+    --line:#DDDCD5;
+    --text:#22262B;
+    --muted:#6B7280;
+    --teal:#3E7C7C;
+    --teal-dark:#2E5E5E;
+    --amber:#D98E3B;
+    --red:#C1483F;
+    --green:#4C8C5B;
+    --mono:'IBM Plex Mono', monospace;
+    --sans:'IBM Plex Sans', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--sans);background:var(--paper);color:var(--text);}
+
+  header{
+    background:var(--ink);color:#fff;padding:18px 24px;
+    display:flex;align-items:center;justify-content:space-between;
+    border-bottom:3px solid var(--teal);flex-wrap:wrap;gap:8px;
+  }
+  header h1{margin:0;font-size:19px;font-weight:600;}
+  .back{font-family:var(--mono);font-size:12px;color:#B9C3CC;text-decoration:none;}
+  .back:hover{color:#fff;}
+
+  .wrap{max-width:480px;margin:0 auto;padding:20px 16px 60px;}
+
+  .cam-card{
+    background:#000;border-radius:14px;overflow:hidden;position:relative;
+    aspect-ratio:3/4;margin-bottom:18px;
+  }
+  #video{width:100%;height:100%;object-fit:cover;display:block;}
+  .cam-hint{
+    position:absolute;bottom:12px;left:0;right:0;text-align:center;
+    color:#fff;font-size:12px;font-family:var(--mono);
+    text-shadow:0 1px 3px rgba(0,0,0,.6);
+  }
+  .scan-frame{
+    position:absolute;top:30%;left:10%;right:10%;bottom:30%;
+    border:2px solid #3E7C7C;border-radius:10px;
+    box-shadow:0 0 0 2000px rgba(0,0,0,.35);
+  }
+
+  .status-card{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:20px;margin-bottom:16px;
+  }
+  .status-idle{color:var(--muted);font-size:14px;text-align:center;padding:10px 0;}
+  .status-error{color:var(--red);font-size:14px;text-align:center;}
+
+  .produkt-info .art{font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:4px;}
+  .produkt-info h2{margin:0 0 8px 0;font-size:16px;line-height:1.3;}
+  .produkt-info .platz{font-family:var(--mono);font-size:12px;color:var(--teal-dark);margin-bottom:14px;}
+
+  .bestand-row{
+    display:flex;align-items:center;justify-content:space-between;
+    background:#F7F6F2;border-radius:10px;padding:14px 18px;margin-bottom:16px;
+  }
+  .bestand-row .zahl{font-family:var(--mono);font-size:32px;font-weight:700;}
+  .bestand-row .zahl.low{color:var(--red);}
+  .bestand-row .zahl.mid{color:var(--amber);}
+  .bestand-row .zahl.good{color:var(--green);}
+  .bestand-row .lbl{font-size:12px;color:var(--muted);}
+
+  .btn-row{display:flex;gap:10px;}
+  .btn{
+    flex:1;padding:14px;border-radius:10px;border:none;font-family:var(--sans);
+    font-weight:700;font-size:15px;cursor:pointer;
+  }
+  .btn-ausgeben{background:var(--red);color:#fff;}
+  .btn-ausgeben:hover{background:#a53a32;}
+  .btn-eingang{background:var(--green);color:#fff;}
+  .btn-eingang:hover{background:#3d7249;}
+  .btn-abbrechen{
+    width:100%;margin-top:10px;padding:10px;border-radius:8px;
+    background:transparent;border:1px solid var(--line);color:var(--muted);
+    font-family:var(--sans);font-size:13px;cursor:pointer;
+  }
+
+  .verlauf{margin-top:8px;}
+  .verlauf-titel{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:600;margin:0 0 8px 2px;}
+  .verlauf-item{
+    background:var(--card);border:1px solid var(--line);border-radius:8px;
+    padding:10px 14px;margin-bottom:8px;font-size:13px;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .verlauf-item .txt{color:var(--text);}
+  .verlauf-item .zeit{font-family:var(--mono);font-size:11px;color:var(--muted);}
+  .verlauf-item.ausgang{border-left:3px solid var(--red);}
+  .verlauf-item.eingang{border-left:3px solid var(--green);}
+
+  .manuell{margin-bottom:16px;}
+  .manuell input{
+    width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;
+    font-family:var(--mono);font-size:14px;
+  }
+  .manuell-lbl{font-size:12px;color:var(--muted);margin-bottom:6px;}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="index.html">← Dashboard</a>
+  <h1>Produkt scannen</h1>
+  <span></span>
+</header>
+
+<div class="wrap">
+
+  <div class="cam-card">
+    <video id="video" muted playsinline></video>
+    <div class="scan-frame"></div>
+    <div class="cam-hint" id="camHint">Barcode vor die Kamera halten …</div>
+  </div>
+
+  <div class="manuell">
+    <div class="manuell-lbl">Oder EAN-Nummer manuell eingeben:</div>
+    <input type="text" id="manuellInput" placeholder="z.B. 4008496...">
+  </div>
+
+  <div class="status-card" id="statusCard">
+    <div class="status-idle">Noch kein Produkt gescannt.</div>
+  </div>
+
+  <div class="verlauf" id="verlaufBox" style="display:none;">
+    <div class="verlauf-titel">Zuletzt gescannt</div>
+    <div id="verlaufListe"></div>
+  </div>
+
+</div>
+
+<script>
+/* ================= KONFIGURATION ==================
+   Gleiche Zugangsdaten wie in produkte.html eintragen.
+==================================================== */
+const SUPABASE_URL = "https://nrsmzonjqspnsfbhvaus.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_BHyuPLdhMIV2f3n1roJYcQ_N2V_rxsl";
+/* ==================================================== */
+
+let supabaseClient = null;
+let codeReader = null;
+let aktuellesProdukt = null;
+let letzterScanCode = null;
+let letzterScanZeit = 0;
+const verlauf = [];
+
+try {
+  if (typeof window.supabase !== 'undefined') {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+} catch(err){ console.error(err); }
+
+function bestandsKlasse(wert){
+  if(wert === null || wert === undefined || wert === '') return '';
+  const b = Number(wert);
+  if(isNaN(b)) return '';
+  if(b < 3) return 'low';
+  if(b <= 5) return 'mid';
+  return 'good';
+}
+
+function escapeHtml(str){
+  if(str===null||str===undefined) return '';
+  return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function suchProdukt(ean){
+  if(!supabaseClient) return null;
+  const { data, error } = await supabaseClient.from('produkte').select('*').eq('ean_nummer', ean).limit(1);
+  if(error){ console.error(error); return null; }
+  return (data && data.length > 0) ? data[0] : null;
+}
+
+async function beiScan(code){
+  const jetzt = Date.now();
+  // Doppel-Scans innerhalb 1,5s ignorieren (gleicher Code)
+  if(code === letzterScanCode && (jetzt - letzterScanZeit) < 1500) return;
+  letzterScanCode = code;
+  letzterScanZeit = jetzt;
+
+  document.getElementById('camHint').textContent = 'Gescannt: ' + code + ' — suche …';
+  const produkt = await suchProdukt(code);
+  zeigeStatus(produkt, code);
+}
+
+function zeigeStatus(produkt, code){
+  const card = document.getElementById('statusCard');
+  if(!produkt){
+    card.innerHTML = `<div class="status-error">Kein Produkt mit EAN "${escapeHtml(code)}" gefunden.</div>`;
+    document.getElementById('camHint').textContent = 'Barcode vor die Kamera halten …';
+    aktuellesProdukt = null;
+    return;
+  }
+  aktuellesProdukt = produkt;
+  const klasse = bestandsKlasse(produkt.bestand);
+  card.innerHTML = `
+    <div class="produkt-info">
+      <div class="art">${escapeHtml(produkt.artikel_nummer||'—')}</div>
+      <h2>${escapeHtml((produkt.beschreibung||'(keine Beschreibung)').split('\\n')[0])}</h2>
+      ${produkt.lagerplatz ? `<div class="platz">📍 Lagerplatz: ${escapeHtml(produkt.lagerplatz)}</div>` : ''}
+    </div>
+    <div class="bestand-row">
+      <div>
+        <div class="lbl">Aktueller Bestand</div>
+        <div class="zahl ${klasse}" id="bestandAnzeige">${produkt.bestand ?? '—'}</div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ausgeben" id="ausgebenBtn">− 1 Ausgeben</button>
+      <button class="btn btn-eingang" id="eingangBtn">+ 1 Wareneingang</button>
+    </div>
+    <button class="btn-abbrechen" id="abbrechenBtn">Zurücksetzen</button>
+  `;
+  document.getElementById('ausgebenBtn').addEventListener('click', ()=>bestandAendern(-1));
+  document.getElementById('eingangBtn').addEventListener('click', ()=>bestandAendern(1));
+  document.getElementById('abbrechenBtn').addEventListener('click', zuruecksetzen);
+  document.getElementById('camHint').textContent = 'Produkt gefunden ✓';
+}
+
+async function bestandAendern(delta){
+  if(!aktuellesProdukt || !supabaseClient) return;
+  const aktuell = Number(aktuellesProdukt.bestand) || 0;
+  const neu = Math.max(0, aktuell + delta);
+
+  const { error } = await supabaseClient.from('produkte').update({ bestand: neu }).eq('id', aktuellesProdukt.id);
+  if(error){
+    alert('Fehler beim Speichern: ' + error.message);
+    return;
+  }
+  aktuellesProdukt.bestand = neu;
+
+  const anzeige = document.getElementById('bestandAnzeige');
+  if(anzeige){
+    anzeige.textContent = neu;
+    anzeige.className = 'zahl ' + bestandsKlasse(neu);
+  }
+
+  verlaufHinzufuegen(aktuellesProdukt, delta);
+}
+
+function verlaufHinzufuegen(produkt, delta){
+  const zeit = new Date().toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+  verlauf.unshift({
+    text: (produkt.artikel_nummer || 'Produkt') + ' — ' + (delta > 0 ? '+1 Wareneingang' : '−1 ausgegeben'),
+    art: delta > 0 ? 'eingang' : 'ausgang',
+    zeit
+  });
+  if(verlauf.length > 8) verlauf.pop();
+
+  const box = document.getElementById('verlaufBox');
+  box.style.display = 'block';
+  document.getElementById('verlaufListe').innerHTML = verlauf.map(v => `
+    <div class="verlauf-item ${v.art}">
+      <span class="txt">${escapeHtml(v.text)}</span>
+      <span class="zeit">${v.zeit}</span>
+    </div>
+  `).join('');
+}
+
+function zuruecksetzen(){
+  aktuellesProdukt = null;
+  letzterScanCode = null;
+  document.getElementById('statusCard').innerHTML = '<div class="status-idle">Noch kein Produkt gescannt.</div>';
+  document.getElementById('camHint').textContent = 'Barcode vor die Kamera halten …';
+}
+
+document.getElementById('manuellInput').addEventListener('keydown', async (e)=>{
+  if(e.key === 'Enter'){
+    const code = e.target.value.trim();
+    if(code){
+      await beiScan(code);
+      e.target.value = '';
+    }
+  }
+});
+
+async function starteKamera(){
+  if(typeof ZXing === 'undefined'){
+    document.getElementById('camHint').textContent = 'Scan-Bibliothek konnte nicht geladen werden.';
+    return;
+  }
+  try {
+    codeReader = new ZXing.BrowserMultiFormatReader();
+    const videoEl = document.getElementById('video');
+    await codeReader.decodeFromVideoDevice(null, videoEl, (result, err) => {
+      if(result){
+        beiScan(result.getText());
+      }
+    });
+  } catch(err){
+    console.error(err);
+    document.getElementById('camHint').textContent = 'Kamera-Zugriff nicht möglich: ' + err.message;
+  }
+}
+
+starteKamera();
+</script>
+</body>
+</html>
