@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
   :root{
@@ -119,7 +120,7 @@
 <header>
   <a class="back" href="index.html">← Dashboard</a>
   <h1>Produkt scannen</h1>
-  <span></span>
+  <span id="userBox" style="font-family:var(--mono);font-size:11px;color:#B9C3CC;"></span>
 </header>
 
 <div class="wrap">
@@ -147,25 +148,11 @@
 </div>
 
 <script>
-/* ================= KONFIGURATION ==================
-   Gleiche Zugangsdaten wie in produkte.html eintragen.
-==================================================== */
-const SUPABASE_URL = "https://nrsmzonjqspnsfbhvaus.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_BHyuPLdhMIV2f3n1roJYcQ_N2V_rxsl";
-/* ==================================================== */
-
-let supabaseClient = null;
 let codeReader = null;
 let aktuellesProdukt = null;
 let letzterScanCode = null;
 let letzterScanZeit = 0;
 const verlauf = [];
-
-try {
-  if (typeof window.supabase !== 'undefined') {
-    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  }
-} catch(err){ console.error(err); }
 
 function bestandsKlasse(wert){
   if(wert === null || wert === undefined || wert === '') return '';
@@ -253,6 +240,16 @@ async function bestandAendern(delta){
   }
 
   verlaufHinzufuegen(aktuellesProdukt, delta);
+
+  try {
+    await supabaseClient.from('bewegungen').insert({
+      produkt_id: aktuellesProdukt.id,
+      artikel_nummer: aktuellesProdukt.artikel_nummer,
+      mitarbeiter: aktuellerName,
+      aktion: delta > 0 ? 'eingang' : 'ausgabe',
+      menge: delta
+    });
+  } catch(err){ console.error('Protokoll-Fehler:', err); }
 }
 
 function verlaufHinzufuegen(produkt, delta){
@@ -327,7 +324,13 @@ async function starteKamera(){
   }
 }
 
-starteKamera();
+(async ()=>{
+  const info = await schuetzeSeite(['admin','ausgabe','alle']);
+  if(!info) return;
+  document.getElementById('userBox').innerHTML =
+    `${info.name} — ${rollenLabel(info.rolle)} <button onclick="abmelden()" style="background:none;border:1px solid #3E4E60;color:#B9C3CC;border-radius:6px;padding:4px 8px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;cursor:pointer;">Abmelden</button>`;
+  starteKamera();
+})();
 </script>
 </body>
 </html>

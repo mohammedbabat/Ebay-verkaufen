@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 <style>
   :root{
@@ -92,7 +93,7 @@
 <header>
   <a class="back" href="produkte.html">← Produkte</a>
   <h1>Etiketten drucken</h1>
-  <span></span>
+  <span id="userBox" style="font-family:var(--mono);font-size:11px;color:#B9C3CC;"></span>
 </header>
 
 <div class="wrap">
@@ -122,22 +123,8 @@
 </div>
 
 <script>
-/* ================= KONFIGURATION ==================
-   Gleiche Zugangsdaten wie in produkte.html eintragen.
-==================================================== */
-const SUPABASE_URL = "https://nrsmzonjqspnsfbhvaus.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_BHyuPLdhMIV2f3n1roJYcQ_N2V_rxsl";
-/* ==================================================== */
-
-let supabaseClient = null;
 let produkte = [];
 const ausgewaehlt = new Set();
-
-try {
-  if (typeof window.supabase !== 'undefined') {
-    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  }
-} catch(err){ console.error(err); }
 
 function escapeHtml(str){
   if(str===null||str===undefined) return '';
@@ -235,7 +222,13 @@ document.getElementById('druckenBtn').addEventListener('click', ()=>{
   setTimeout(()=>window.print(), 200);
 });
 
-laden();
+(async ()=>{
+  const info = await schuetzeSeite(['admin','hinzufuegen','alle']);
+  if(!info) return;
+  document.getElementById('userBox').innerHTML =
+    `${info.name} — ${rollenLabel(info.rolle)} <button onclick="abmelden()" style="background:none;border:1px solid #3E4E60;color:#B9C3CC;border-radius:6px;padding:4px 8px;font-family:'IBM Plex Sans',sans-serif;font-size:11px;cursor:pointer;">Abmelden</button>`;
+  laden();
+})();
 </script>
 </body>
 </html>

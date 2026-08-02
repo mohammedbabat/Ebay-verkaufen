@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mitarbeiter verwalten</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<style>
+  :root{
+    --ink:#1E2A38; --ink-2:#28384A; --paper:#F4F4F1; --card:#FFFFFF; --line:#DDDCD5;
+    --text:#22262B; --muted:#6B7280; --teal:#3E7C7C; --teal-dark:#2E5E5E; --red:#C1483F;
+    --mono:'IBM Plex Mono', monospace; --sans:'IBM Plex Sans', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--sans);background:var(--paper);color:var(--text);}
+  header{
+    background:var(--ink);color:#fff;padding:18px 24px;
+    display:flex;align-items:center;justify-content:space-between;
+    border-bottom:3px solid var(--teal);flex-wrap:wrap;gap:8px;
+  }
+  header h1{margin:0;font-size:19px;font-weight:600;}
+  .back{font-family:var(--mono);font-size:12px;color:#B9C3CC;text-decoration:none;margin-right:14px;}
+  .back:hover{color:#fff;}
+  .userbox{font-family:var(--mono);font-size:12px;color:#B9C3CC;}
+  .userbox button{
+    background:none;border:1px solid #3E4E60;color:#B9C3CC;border-radius:6px;
+    padding:5px 10px;font-family:var(--sans);font-size:11px;cursor:pointer;margin-left:8px;
+  }
+  .userbox button:hover{color:#fff;border-color:#fff;}
+
+  .wrap{max-width:800px;margin:0 auto;padding:24px 20px 60px;}
+  .hinweis{color:var(--muted);font-size:13px;margin-bottom:18px;}
+
+  .liste{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+  .zeile{
+    display:flex;align-items:center;gap:12px;padding:14px 16px;
+    border-bottom:1px solid #EFEDE7;font-size:13px;
+  }
+  .zeile:last-child{border-bottom:none;}
+  .zeile .name{flex:1;font-weight:600;}
+  .zeile .name .email{display:block;font-weight:400;color:var(--muted);font-size:11px;font-family:var(--mono);}
+  .zeile select{
+    padding:8px 10px;border:1px solid var(--line);border-radius:6px;
+    font-family:var(--sans);font-size:13px;
+  }
+  .zeile .status{font-size:11px;color:var(--teal-dark);width:60px;text-align:right;}
+  .empty-msg{color:var(--muted);font-size:13px;text-align:center;padding:30px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <a class="back" href="index.html">← Dashboard</a>
+    <h1 style="display:inline;">Mitarbeiter verwalten</h1>
+  </div>
+  <div class="userbox" id="userBox"></div>
+</header>
+
+<div class="wrap">
+  <div class="hinweis">
+    Neue Mitarbeiter-Konten (E-Mail + Passwort) legst du in Supabase an: <b>Authentication → Users → Add user</b>.
+    Sobald sich die Person einmal in <code>login.html</code> anmeldet, erscheint sie automatisch hier —
+    dann wählst du ihre Rolle aus.
+  </div>
+  <div class="liste" id="liste">
+    <div class="empty-msg">Lädt …</div>
+  </div>
+</div>
+
+<script>
+(async ()=>{
+  const info = await schuetzeSeite(['admin']);
+  if(!info) return;
+
+  document.getElementById('userBox').innerHTML =
+    `${info.name} — ${rollenLabel(info.rolle)} <button id="logoutBtn">Abmelden</button>`;
+  document.getElementById('logoutBtn').addEventListener('click', abmelden);
+
+  ladeMitarbeiter();
+})();
+
+function escapeHtml(str){
+  if(str===null||str===undefined) return '';
+  return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function ladeMitarbeiter(){
+  const liste = document.getElementById('liste');
+  const { data, error } = await supabaseClient
+    .from('mitarbeiter_rollen')
+    .select('*')
+    .order('erstellt_am', { ascending: true });
+
+  if(error){
+    liste.innerHTML = `<div class="empty-msg" style="color:#C1483F;">Fehler: ${error.message}</div>`;
+    return;
+  }
+  if(!data || data.length === 0){
+    liste.innerHTML = '<div class="empty-msg">Noch niemand hat sich eingeloggt.</div>';
+    return;
+  }
+
+  const ROLLEN = [
+    {value:'ausgabe', label:'Ausgabe'},
+    {value:'hinzufuegen', label:'Hinzufügen'},
+    {value:'alle', label:'Alles außer Admin'},
+    {value:'admin', label:'Admin'},
+  ];
+
+  liste.innerHTML = data.map(m=>{
+    const optionsHtml = ROLLEN.map(r=>
+      `<option value="${r.value}" ${m.rolle===r.value?'selected':''}>${r.label}</option>`
+    ).join('');
+    return `
+      <div class="zeile">
+        <div class="name">
+          ${escapeHtml(m.name || m.user_id)}
+        </div>
+        <select data-id="${m.user_id}">${optionsHtml}</select>
+        <span class="status" id="status-${m.user_id}"></span>
+      </div>
+    `;
+  }).join('');
+
+  liste.querySelectorAll('select').forEach(sel=>{
+    sel.addEventListener('change', async ()=>{
+      const userId = sel.dataset.id;
+      const neueRolle = sel.value;
+      const statusEl = document.getElementById('status-' + userId);
+      statusEl.textContent = 'speichert …';
+      const { error } = await supabaseClient
+        .from('mitarbeiter_rollen')
+        .update({ rolle: neueRolle })
+        .eq('user_id', userId);
+      statusEl.textContent = error ? 'Fehler!' : 'gespeichert ✓';
+      if(error) console.error(error);
+      setTimeout(()=>{ statusEl.textContent = ''; }, 2000);
+    });
+  });
+}
+</script>
+</body>
+</html>

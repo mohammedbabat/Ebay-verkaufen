@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
 <style>
   :root{
     --ink:#1E2A38;
@@ -103,6 +104,7 @@
   </div>
   <a class="btn-manage" href="scan.html" style="background:var(--red);">📷 Scannen</a>
   <a class="btn-manage" href="produkte.html">+ Produkte verwalten</a>
+  <span id="userBox" style="font-family:var(--mono);font-size:11px;color:#B9C3CC;margin-left:8px;"></span>
 </header>
 
 <div class="wrap">
@@ -125,14 +127,6 @@
 </div>
 
 <script>
-/* ================= KONFIGURATION ==================
-   Gleiche Zugangsdaten wie in produkte.html eintragen.
-==================================================== */
-const SUPABASE_URL = "https://nrsmzonjqspnsfbhvaus.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_BHyuPLdhMIV2f3n1roJYcQ_N2V_rxsl";
-/* ==================================================== */
-
-let supabaseClient = null;
 let produkte = [];
 const REGALE = ['A','B','C','D','E'];
 const PLAETZE_PRO_REGAL = 10;
@@ -140,16 +134,6 @@ const PLAETZE_PRO_REGAL = 10;
 function zeigeFehler(msg){
   document.getElementById('wand').innerHTML =
     `<div class="empty-msg" style="color:#C1483F;">${msg}</div>`;
-}
-
-try {
-  if (typeof window.supabase === 'undefined') {
-    throw new Error('Supabase-Bibliothek konnte nicht geladen werden. Prüfe VPN/Adblocker.');
-  }
-  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-} catch(err){
-  console.error(err);
-  zeigeFehler(err.message);
 }
 
 function bestandsKlasse(wert){
@@ -219,7 +203,13 @@ function renderWand(){
   cards[2].textContent = gesamt - belegt;
 }
 
-laden();
+(async ()=>{
+  const info = await schuetzeSeite(['admin','ausgabe','hinzufuegen','alle']);
+  if(!info) return;
+  document.getElementById('userBox').innerHTML =
+    `${info.name} — ${rollenLabel(info.rolle)} <button onclick="abmelden()" style="background:none;border:1px solid #3E4E60;color:#B9C3CC;border-radius:6px;padding:4px 8px;font-family:var(--sans);font-size:11px;cursor:pointer;">Abmelden</button>`;
+  laden();
+})();
 </script>
 </body>
 </html>

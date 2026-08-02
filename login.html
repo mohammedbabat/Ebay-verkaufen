@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anmelden</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<style>
+  :root{
+    --ink:#1E2A38; --paper:#F4F4F1; --card:#FFFFFF; --line:#DDDCD5;
+    --text:#22262B; --muted:#6B7280; --teal:#3E7C7C; --teal-dark:#2E5E5E; --red:#C1483F;
+    --mono:'IBM Plex Mono', monospace; --sans:'IBM Plex Sans', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;font-family:var(--sans);background:var(--ink);color:var(--text);
+    min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+  }
+  .box{background:var(--card);border-radius:14px;padding:32px;width:100%;max-width:360px;}
+  .box h1{margin:0 0 4px 0;font-size:20px;}
+  .box .tag{font-family:var(--mono);font-size:11px;color:var(--teal);letter-spacing:1px;text-transform:uppercase;margin-bottom:24px;display:block;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600;}
+  .field input{
+    width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;
+    font-family:var(--sans);font-size:14px;
+  }
+  .field input:focus{outline:2px solid var(--teal);outline-offset:1px;border-color:var(--teal);}
+  .btn-login{
+    width:100%;padding:13px;border-radius:8px;border:none;background:var(--teal);
+    color:#fff;font-weight:700;font-size:15px;cursor:pointer;margin-top:6px;
+  }
+  .btn-login:hover{background:var(--teal-dark);}
+  .btn-login:disabled{opacity:.6;cursor:default;}
+  .fehler{color:var(--red);font-size:13px;margin-top:12px;text-align:center;display:none;}
+</style>
+</head>
+<body>
+
+<div class="box">
+  <h1>Anmelden</h1>
+  <span class="tag">Produkt-Lager</span>
+
+  <div class="field">
+    <label>E-Mail</label>
+    <input type="email" id="emailInput" autocomplete="username">
+  </div>
+  <div class="field">
+    <label>Passwort</label>
+    <input type="password" id="passwortInput" autocomplete="current-password">
+  </div>
+  <button class="btn-login" id="loginBtn">Anmelden</button>
+  <div class="fehler" id="fehlerBox"></div>
+</div>
+
+<script>
+async function versuchLogin(){
+  const email = document.getElementById('emailInput').value.trim();
+  const passwort = document.getElementById('passwortInput').value;
+  const fehlerBox = document.getElementById('fehlerBox');
+  const btn = document.getElementById('loginBtn');
+  fehlerBox.style.display = 'none';
+
+  if(!email || !passwort){
+    fehlerBox.textContent = 'Bitte E-Mail und Passwort eingeben.';
+    fehlerBox.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Anmeldung läuft …';
+
+  const client = initSupabaseClient();
+  if(!client){
+    fehlerBox.textContent = 'Supabase konnte nicht geladen werden.';
+    fehlerBox.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Anmelden';
+    return;
+  }
+
+  const { error } = await client.auth.signInWithPassword({ email, password: passwort });
+  btn.disabled = false;
+  btn.textContent = 'Anmelden';
+
+  if(error){
+    fehlerBox.textContent = 'Anmeldung fehlgeschlagen: E-Mail oder Passwort falsch.';
+    fehlerBox.style.display = 'block';
+    return;
+  }
+
+  location.href = 'index.html';
+}
+
+document.getElementById('loginBtn').addEventListener('click', versuchLogin);
+document.getElementById('passwortInput').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') versuchLogin();
+});
+
+// Falls schon eingeloggt, direkt weiterleiten
+(async ()=>{
+  const client = initSupabaseClient();
+  if(!client) return;
+  const { data: { session } } = await client.auth.getSession();
+  if(session) location.href = 'index.html';
+})();
+</script>
+</body>
+</html>

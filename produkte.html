@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
 <style>
   :root{
     --ink:#1E2A38;
@@ -177,6 +178,7 @@
     <a class="back" href="lagerplan.html">Lagerplan</a>
     <a class="back" href="scan.html">📷 Scannen</a>
     <a class="back" href="etiketten.html">🏷 Etiketten</a>
+    <span id="userBox" style="margin-right:14px;"></span>
     <span class="count" id="countLabel">— Artikel</span>
   </span>
 </header>
@@ -199,18 +201,6 @@
 </div>
 
 <script>
-/* ================= KONFIGURATION ==================
-   Zugangsdaten für Projekt 2 eintragen.
-   Zu finden in Supabase: Project Settings -> API Keys
-   - SUPABASE_URL      = "Project URL"
-   - SUPABASE_ANON_KEY = "Publishable key" (beginnt mit sb_publishable_...)
-     (Nicht den "Secret key" verwenden! Der darf niemals in einer
-      Webapp/im Browser stehen, nur der Publishable/Anon-Key.)
-==================================================== */
-const SUPABASE_URL = "https://nrsmzonjqspnsfbhvaus.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_BHyuPLdhMIV2f3n1roJYcQ_N2V_rxsl";
-/* ==================================================== */
-
 const BUCKET = "produktbilder";
 const QUELLEN = [
   {value:'', label:'— nicht ausgewählt —'},
@@ -228,7 +218,6 @@ function alleLagerplaetze(){
   }
   return plaetze;
 }
-let supabaseClient = null;
 let produkte = [];
 let activeId = null;   // id des aktuell geöffneten Produkts, oder "new"
 
@@ -264,21 +253,6 @@ document.getElementById('newBtn').addEventListener('click', ()=>{
   });
 });
 document.getElementById('searchInput').addEventListener('input', renderList);
-
-try {
-  if (typeof window.supabase === 'undefined') {
-    throw new Error('Supabase-Bibliothek konnte nicht geladen werden. Prüfe, ob ein VPN, Adblocker oder eine Browser-Erweiterung die Verbindung blockiert.');
-  }
-  const configured = !SUPABASE_URL.startsWith("DEINE_") && !SUPABASE_ANON_KEY.startsWith("DEIN_");
-  if (configured) {
-    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  } else {
-    document.getElementById('configBanner').style.display = 'block';
-  }
-} catch (err) {
-  console.error(err);
-  zeigeFehler(err.message);
-}
 
 const FIELDS = [
   {key:'artikel_nummer', label:'Artikel Nummer', mono:true},
@@ -585,6 +559,18 @@ function renderImages(bilder, produktId){
   `).join('');
 }
 
+async function protokolliere(produktId, artikelNummer, aktion, menge){
+  try {
+    await supabaseClient.from('bewegungen').insert({
+      produkt_id: produktId,
+      artikel_nummer: artikelNummer,
+      mitarbeiter: aktuellerName,
+      aktion: aktion,
+      menge: menge ?? null
+    });
+  } catch(err){ console.error('Protokoll-Fehler:', err); }
+}
+
 async function saveProdukt(existing){
   const payload = {};
   FIELDS.forEach(f=>{
@@ -605,11 +591,13 @@ async function saveProdukt(existing){
     const {data, error} = await supabaseClient.from('produkte').insert(payload).select().single();
     if(error){ alert('Fehler beim Anlegen: '+error.message); return; }
     activeId = data.id;
+    await protokolliere(data.id, data.artikel_nummer, 'angelegt');
     await loadProdukte();
     openProdukt(data.id);
   } else {
     const {error} = await supabaseClient.from('produkte').update(payload).eq('id', existing.id);
     if(error){ alert('Fehler beim Speichern: '+error.message); return; }
+    await protokolliere(existing.id, payload.artikel_nummer, 'bearbeitet');
     await loadProdukte();
     openProdukt(existing.id);
   }
@@ -670,7 +658,14 @@ window.deleteImage = async function(produktId, url){
 }
 
 // Start
-loadProdukte();
+(async ()=>{
+  const info = await schuetzeSeite(['admin','hinzufuegen','alle']);
+  if(!info) return;
+  document.getElementById('userBox').innerHTML =
+    `<span style="font-family:var(--mono);font-size:11px;color:#B9C3CC;">${info.name} — ${rollenLabel(info.rolle)}</span> ` +
+    `<button onclick="abmelden()" style="background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:3px 8px;font-family:var(--sans);font-size:11px;cursor:pointer;">Abmelden</button>`;
+  loadProdukte();
+})();
 </script>
 </body>
 </html>
