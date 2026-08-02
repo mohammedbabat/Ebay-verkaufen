@@ -162,7 +162,7 @@ const SUPABASE_URL = "https://nrsmzonjqspnsfbhvaus.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_BHyuPLdhMIV2f3n1roJYcQ_N2V_rxsl";
 /* ==================================================== */
 
-let supabase = null;
+let supabaseClient = null;
 let produkte = [];
 let aktiverFilter = 'all';
 
@@ -177,7 +177,7 @@ try {
   }
   const configured = !SUPABASE_URL.startsWith("DEINE_") && !SUPABASE_ANON_KEY.startsWith("DEIN_");
   if (configured) {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   } else {
     document.getElementById('configBanner').style.display = 'block';
   }
@@ -207,9 +207,9 @@ function fmtPreis(v){
 }
 
 async function laden(){
-  if(!supabase) return;
+  if(!supabaseClient) return;
   try {
-    const {data, error} = await supabase.from('produkte').select('*').order('artikel_nummer', {ascending:true});
+    const {data, error} = await supabaseClient.from('produkte').select('*').order('artikel_nummer', {ascending:true});
     if(error){ zeigeFehler('Datenbankfehler: ' + error.message); return; }
     produkte = data || [];
     renderKpis();

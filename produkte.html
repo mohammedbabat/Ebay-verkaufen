@@ -208,7 +208,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_BHyuPLdhMIV2f3n1roJYcQ_N2V_rxsl";
 /* ==================================================== */
 
 const BUCKET = "produktbilder";
-let supabase = null;
+let supabaseClient = null;
 let produkte = [];
 let activeId = null;   // id des aktuell geöffneten Produkts, oder "new"
 
@@ -241,7 +241,7 @@ try {
   }
   const configured = !SUPABASE_URL.startsWith("DEINE_") && !SUPABASE_ANON_KEY.startsWith("DEIN_");
   if (configured) {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   } else {
     document.getElementById('configBanner').style.display = 'block';
   }
@@ -263,9 +263,9 @@ const FIELDS = [
 ];
 
 async function loadProdukte(){
-  if(!supabase) return;
+  if(!supabaseClient) return;
   try {
-    const {data, error} = await supabase.from('produkte').select('*').order('created_at', {ascending:false});
+    const {data, error} = await supabaseClient.from('produkte').select('*').order('created_at', {ascending:false});
     if(error){ console.error(error); zeigeFehler('Datenbankfehler: ' + error.message); return; }
     produkte = data || [];
     renderList();
@@ -418,13 +418,13 @@ async function saveProdukt(existing){
   payload.updated_at = new Date().toISOString();
 
   if(!existing.id){
-    const {data, error} = await supabase.from('produkte').insert(payload).select().single();
+    const {data, error} = await supabaseClient.from('produkte').insert(payload).select().single();
     if(error){ alert('Fehler beim Anlegen: '+error.message); return; }
     activeId = data.id;
     await loadProdukte();
     openProdukt(data.id);
   } else {
-    const {error} = await supabase.from('produkte').update(payload).eq('id', existing.id);
+    const {error} = await supabaseClient.from('produkte').update(payload).eq('id', existing.id);
     if(error){ alert('Fehler beim Speichern: '+error.message); return; }
     await loadProdukte();
     openProdukt(existing.id);
@@ -433,7 +433,7 @@ async function saveProdukt(existing){
 
 async function deleteProdukt(id){
   if(!confirm('Dieses Produkt wirklich löschen? Das kann nicht rückgängig gemacht werden.')) return;
-  const {error} = await supabase.from('produkte').delete().eq('id', id);
+  const {error} = await supabaseClient.from('produkte').delete().eq('id', id);
   if(error){ alert('Fehler beim Löschen: '+error.message); return; }
   activeId = null;
   await loadProdukte();
@@ -452,13 +452,13 @@ async function uploadImages(e, produktId){
 
   for(const file of files){
     const path = `${produktId}/${Date.now()}_${file.name}`;
-    const {error: upErr} = await supabase.storage.from(BUCKET).upload(path, file);
+    const {error: upErr} = await supabaseClient.storage.from(BUCKET).upload(path, file);
     if(upErr){ statusEl.textContent = 'Fehler: '+upErr.message; continue; }
-    const {data: pub} = supabase.storage.from(BUCKET).getPublicUrl(path);
+    const {data: pub} = supabaseClient.storage.from(BUCKET).getPublicUrl(path);
     currentImgs.push(pub.publicUrl);
   }
 
-  const {error: updErr} = await supabase.from('produkte').update({bilder: currentImgs}).eq('id', produktId);
+  const {error: updErr} = await supabaseClient.from('produkte').update({bilder: currentImgs}).eq('id', produktId);
   if(updErr){ statusEl.textContent = 'Fehler beim Speichern der Bild-Liste: '+updErr.message; return; }
 
   statusEl.textContent = 'Fertig hochgeladen.';
@@ -476,10 +476,10 @@ window.deleteImage = async function(produktId, url){
   const idx = url.indexOf(marker);
   if(idx !== -1){
     const path = url.substring(idx + marker.length);
-    await supabase.storage.from(BUCKET).remove([path]);
+    await supabaseClient.storage.from(BUCKET).remove([path]);
   }
 
-  const {error} = await supabase.from('produkte').update({bilder: newImgs}).eq('id', produktId);
+  const {error} = await supabaseClient.from('produkte').update({bilder: newImgs}).eq('id', produktId);
   if(error){ alert('Fehler beim Löschen: '+error.message); return; }
   await loadProdukte();
   openProdukt(produktId);
