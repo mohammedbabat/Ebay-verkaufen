@@ -218,6 +218,23 @@ function zeigeFehler(msg){
     '<div class="empty-msg" style="color:#FF9D93;">' + msg + '</div>';
 }
 
+window.addEventListener('error', function(ev){
+  zeigeFehler('Skriptfehler: ' + ev.message + ' (Zeile ' + ev.lineno + ')');
+});
+
+// Buttons zuerst verbinden, damit sie IMMER reagieren,
+// auch wenn die Supabase-Verbindung weiter unten fehlschlägt.
+document.getElementById('newBtn').addEventListener('click', ()=>{
+  activeId = 'new';
+  renderList();
+  renderDetail({
+    id:null, artikel_nummer:'', ean_nummer:'', beschreibung:'',
+    einkaufspreis:'', menge:'', lifewrkosten:'', endeinkaufspreis:'',
+    ebay_preis:'', amazon_preis:'', bestand:'', bilder:[]
+  });
+});
+document.getElementById('searchInput').addEventListener('input', renderList);
+
 try {
   if (typeof window.supabase === 'undefined') {
     throw new Error('Supabase-Bibliothek konnte nicht geladen werden. Prüfe, ob ein VPN, Adblocker oder eine Browser-Erweiterung die Verbindung blockiert.');
@@ -312,18 +329,6 @@ window.openProdukt = function(id){
   const p = produkte.find(x=>x.id===id);
   renderDetail(p);
 }
-
-document.getElementById('newBtn').addEventListener('click', ()=>{
-  activeId = 'new';
-  renderList();
-  renderDetail({
-    id:null, artikel_nummer:'', ean_nummer:'', beschreibung:'',
-    einkaufspreis:'', menge:'', lifewrkosten:'', endeinkaufspreis:'',
-    ebay_preis:'', amazon_preis:'', bestand:'', bilder:[]
-  });
-});
-
-document.getElementById('searchInput').addEventListener('input', renderList);
 
 function renderDetail(p){
   const isNew = !p.id;
