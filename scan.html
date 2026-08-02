@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
   :root{
     --ink:#1E2A38;
@@ -43,7 +43,10 @@
     background:#000;border-radius:14px;overflow:hidden;position:relative;
     aspect-ratio:3/4;margin-bottom:18px;
   }
-  #video{width:100%;height:100%;object-fit:cover;display:block;}
+  #reader{width:100%;height:100%;}
+  #reader video{width:100% !important;height:100% !important;object-fit:cover;display:block;}
+  #reader img{display:none;}
+  #reader canvas{position:absolute;top:0;left:0;}
   .cam-hint{
     position:absolute;bottom:12px;left:0;right:0;text-align:center;
     color:#fff;font-size:12px;font-family:var(--mono);
@@ -122,7 +125,7 @@
 <div class="wrap">
 
   <div class="cam-card">
-    <video id="video" muted playsinline></video>
+    <div id="reader"></div>
     <div class="scan-frame"></div>
     <div class="cam-hint" id="camHint">Barcode vor die Kamera halten …</div>
   </div>
@@ -289,21 +292,38 @@ document.getElementById('manuellInput').addEventListener('keydown', async (e)=>{
 });
 
 async function starteKamera(){
-  if(typeof ZXing === 'undefined'){
+  if(typeof Html5Qrcode === 'undefined'){
     document.getElementById('camHint').textContent = 'Scan-Bibliothek konnte nicht geladen werden.';
     return;
   }
   try {
-    codeReader = new ZXing.BrowserMultiFormatReader();
-    const videoEl = document.getElementById('video');
-    await codeReader.decodeFromVideoDevice(null, videoEl, (result, err) => {
-      if(result){
-        beiScan(result.getText());
-      }
-    });
+    const formate = [
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39,
+    ];
+    const scanner = new Html5Qrcode("reader", { formatsToSupport: formate, verbose: false });
+
+    let letzteVerarbeitungLaeuft = false;
+    const erfolg = (decodedText) => {
+      if(letzteVerarbeitungLaeuft) return;
+      letzteVerarbeitungLaeuft = true;
+      beiScan(decodedText).finally(()=>{ letzteVerarbeitungLaeuft = false; });
+    };
+    const fehler = () => { /* wird bei jedem Frame ohne Treffer aufgerufen, ignorieren */ };
+
+    await scanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 260, height: 160 } },
+      erfolg,
+      fehler
+    );
   } catch(err){
     console.error(err);
-    document.getElementById('camHint').textContent = 'Kamera-Zugriff nicht möglich: ' + err.message;
+    document.getElementById('camHint').textContent = 'Kamera-Zugriff nicht möglich: ' + (err.message || err);
   }
 }
 
