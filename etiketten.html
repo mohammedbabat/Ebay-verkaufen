@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Etiketten drucken</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<style>
+  :root{
+    --ink:#1E2A38;
+    --ink-2:#28384A;
+    --paper:#F4F4F1;
+    --card:#FFFFFF;
+    --line:#DDDCD5;
+    --text:#22262B;
+    --muted:#6B7280;
+    --teal:#3E7C7C;
+    --teal-dark:#2E5E5E;
+    --red:#C1483F;
+    --mono:'IBM Plex Mono', monospace;
+    --sans:'IBM Plex Sans', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--sans);background:var(--paper);color:var(--text);}
+
+  header{
+    background:var(--ink);color:#fff;padding:18px 24px;
+    display:flex;align-items:center;justify-content:space-between;
+    border-bottom:3px solid var(--teal);flex-wrap:wrap;gap:8px;
+  }
+  header h1{margin:0;font-size:19px;font-weight:600;}
+  .back{font-family:var(--mono);font-size:12px;color:#B9C3CC;text-decoration:none;margin-right:14px;}
+  .back:hover{color:#fff;}
+  .btn{
+    padding:10px 16px;border-radius:6px;border:none;font-family:var(--sans);
+    font-weight:600;font-size:13px;cursor:pointer;
+  }
+  .btn-print{background:var(--teal);color:#fff;}
+  .btn-print:hover{background:var(--teal-dark);}
+
+  .wrap{max-width:900px;margin:0 auto;padding:24px 20px 60px;}
+
+  .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+  .toolbar .links{display:flex;gap:10px;align-items:center;}
+  .link-btn{
+    background:none;border:1px solid var(--line);border-radius:6px;padding:7px 12px;
+    font-size:12px;cursor:pointer;font-family:var(--sans);color:var(--text);
+  }
+  .search-row input{
+    padding:9px 12px;border:1px solid var(--line);border-radius:6px;
+    font-family:var(--sans);font-size:13px;width:260px;
+  }
+
+  .liste{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:20px;}
+  .zeile{
+    display:flex;align-items:center;gap:12px;padding:10px 14px;
+    border-bottom:1px solid #EFEDE7;font-size:13px;
+  }
+  .zeile:last-child{border-bottom:none;}
+  .zeile .art{font-family:var(--mono);color:var(--muted);width:80px;flex-shrink:0;}
+  .zeile .beschr{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .zeile .ean{font-family:var(--mono);font-size:11px;color:var(--muted);width:130px;flex-shrink:0;}
+  .zeile.fehlt{opacity:.5;}
+  .fehlt-hinweis{font-size:11px;color:var(--red);}
+  .empty-msg{color:var(--muted);font-size:13px;text-align:center;padding:30px;}
+
+  /* Etiketten-Vorschau + Druck */
+  #etikettenBereich{display:none;}
+  .etikett{
+    display:inline-block;width:60mm;height:32mm;padding:3mm;margin:2mm;
+    border:1px dashed #C9C7BE;vertical-align:top;text-align:center;
+    font-family:var(--sans);
+  }
+  .etikett .art{font-family:var(--mono);font-weight:700;font-size:11px;margin-bottom:1mm;}
+  .etikett .beschr{font-size:8px;color:var(--muted);margin-bottom:1mm;overflow:hidden;max-height:8mm;line-height:1.2;}
+  .etikett svg{width:100%;height:14mm;}
+
+  @media print{
+    header, .toolbar, .liste, .hinweis-block{display:none !important;}
+    body{background:#fff;}
+    .wrap{max-width:none;margin:0;padding:0;}
+    #etikettenBereich{display:block !important;}
+    .etikett{border:1px dashed #ccc;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="produkte.html">← Produkte</a>
+  <h1>Etiketten drucken</h1>
+  <span></span>
+</header>
+
+<div class="wrap">
+
+  <div class="hinweis-block" style="margin-bottom:16px;color:var(--muted);font-size:13px;">
+    Wähle die Produkte aus, für die du Strichcode-Etiketten drucken möchtest. Produkte ohne EAN-Nummer werden übersprungen — trag zuerst eine EAN ein (in "Produkte verwalten", Button "🔄 Generieren").
+  </div>
+
+  <div class="toolbar">
+    <div class="links">
+      <button class="link-btn" id="alleBtn">Alle auswählen</button>
+      <button class="link-btn" id="keineBtn">Auswahl aufheben</button>
+    </div>
+    <div class="search-row">
+      <input type="text" id="searchInput" placeholder="Suche: Artikel-Nr, Text …">
+    </div>
+  </div>
+
+  <div class="liste" id="liste">
+    <div class="empty-msg">Lädt …</div>
+  </div>
+
+  <button class="btn btn-print" id="druckenBtn">🖨 Ausgewählte Etiketten drucken</button>
+
+  <div id="etikettenBereich"></div>
+
+</div>
+
+<script>
+/* ================= KONFIGURATION ==================
+   Gleiche Zugangsdaten wie in produkte.html eintragen.
+==================================================== */
+const SUPABASE_URL = "https://nrsmzonjqspnsfbhvaus.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_BHyuPLdhMIV2f3n1roJYcQ_N2V_rxsl";
+/* ==================================================== */
+
+let supabaseClient = null;
+let produkte = [];
+const ausgewaehlt = new Set();
+
+try {
+  if (typeof window.supabase !== 'undefined') {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+} catch(err){ console.error(err); }
+
+function escapeHtml(str){
+  if(str===null||str===undefined) return '';
+  return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function laden(){
+  if(!supabaseClient){
+    document.getElementById('liste').innerHTML = '<div class="empty-msg" style="color:#C1483F;">Supabase nicht verbunden.</div>';
+    return;
+  }
+  const { data, error } = await supabaseClient.from('produkte').select('*').order('artikel_nummer', {ascending:true});
+  if(error){
+    document.getElementById('liste').innerHTML = `<div class="empty-msg" style="color:#C1483F;">Fehler: ${error.message}</div>`;
+    return;
+  }
+  produkte = data || [];
+  renderListe();
+}
+
+function renderListe(){
+  const term = document.getElementById('searchInput').value.trim().toLowerCase();
+  const gefiltert = produkte.filter(p=>{
+    if(!term) return true;
+    return [p.artikel_nummer, p.beschreibung].join(' ').toLowerCase().includes(term);
+  });
+
+  const liste = document.getElementById('liste');
+  if(gefiltert.length === 0){
+    liste.innerHTML = '<div class="empty-msg">Keine Produkte gefunden.</div>';
+    return;
+  }
+
+  liste.innerHTML = gefiltert.map(p=>{
+    const hatEan = !!(p.ean_nummer && p.ean_nummer.trim());
+    return `
+      <label class="zeile ${hatEan?'':'fehlt'}">
+        <input type="checkbox" data-id="${p.id}" ${!hatEan?'disabled':''} ${ausgewaehlt.has(p.id)?'checked':''}>
+        <span class="art">${escapeHtml(p.artikel_nummer||'—')}</span>
+        <span class="beschr">${escapeHtml((p.beschreibung||'—').split('\\n')[0])}</span>
+        <span class="ean">${hatEan ? escapeHtml(p.ean_nummer) : '<span class="fehlt-hinweis">keine EAN</span>'}</span>
+      </label>
+    `;
+  }).join('');
+
+  liste.querySelectorAll('input[type="checkbox"]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const id = cb.dataset.id;
+      if(cb.checked) ausgewaehlt.add(id); else ausgewaehlt.delete(id);
+    });
+  });
+}
+
+document.getElementById('searchInput').addEventListener('input', renderListe);
+
+document.getElementById('alleBtn').addEventListener('click', ()=>{
+  produkte.forEach(p=>{ if(p.ean_nummer && p.ean_nummer.trim()) ausgewaehlt.add(p.id); });
+  renderListe();
+});
+document.getElementById('keineBtn').addEventListener('click', ()=>{
+  ausgewaehlt.clear();
+  renderListe();
+});
+
+document.getElementById('druckenBtn').addEventListener('click', ()=>{
+  const auswahl = produkte.filter(p => ausgewaehlt.has(p.id));
+  if(auswahl.length === 0){
+    alert('Bitte mindestens ein Produkt mit EAN-Nummer auswählen.');
+    return;
+  }
+
+  const bereich = document.getElementById('etikettenBereich');
+  bereich.innerHTML = auswahl.map((p,i) => `
+    <div class="etikett">
+      <div class="art">${escapeHtml(p.artikel_nummer||'')}</div>
+      <div class="beschr">${escapeHtml((p.beschreibung||'').split('\\n')[0].slice(0,60))}</div>
+      <svg id="etikett-svg-${i}"></svg>
+    </div>
+  `).join('');
+
+  auswahl.forEach((p, i) => {
+    try {
+      JsBarcode(`#etikett-svg-${i}`, p.ean_nummer, {
+        format: "EAN13",
+        width: 1.4,
+        height: 40,
+        fontSize: 12,
+        margin: 0
+      });
+    } catch(err){
+      console.error('Barcode-Fehler bei', p.artikel_nummer, err);
+    }
+  });
+
+  setTimeout(()=>window.print(), 200);
+});
+
+laden();
+</script>
+</body>
+</html>

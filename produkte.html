@@ -176,6 +176,7 @@
     <a class="back" href="index.html">← Dashboard</a>
     <a class="back" href="lagerplan.html">Lagerplan</a>
     <a class="back" href="scan.html">📷 Scannen</a>
+    <a class="back" href="etiketten.html">🏷 Etiketten</a>
     <span class="count" id="countLabel">— Artikel</span>
   </span>
 </header>
@@ -414,6 +415,31 @@ window.zeigeMengenHinweis = function(){
   }
 }
 
+window.generiereEAN = function(){
+  const artFeld = document.getElementById('f_artikel_nummer');
+  const eanFeld = document.getElementById('f_ean_nummer');
+  if(!artFeld || !eanFeld) return;
+
+  // Nur Ziffern aus der Artikelnummer nehmen, auf 9 Stellen auffüllen
+  let ziffern = String(artFeld.value || '').replace(/\D/g, '');
+  if(!ziffern) ziffern = String(Date.now()).slice(-9);
+  const kern = ziffern.padStart(9, '0').slice(-9);
+
+  // "200" = GS1-Bereich für firmeninterne Nutzung (nicht öffentlich registriert,
+  // kollidiert daher nicht mit echten Produkt-EANs)
+  const zwoelf = '200' + kern;
+
+  // EAN-13 Prüfziffer berechnen
+  let summe = 0;
+  for(let i=0; i<12; i++){
+    const ziffer = parseInt(zwoelf[i], 10);
+    summe += (i % 2 === 0) ? ziffer * 1 : ziffer * 3;
+  }
+  const pruefziffer = (10 - (summe % 10)) % 10;
+
+  eanFeld.value = zwoelf + pruefziffer;
+}
+
 function escapeHtml(str){
   if(str===null||str===undefined) return '';
   return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -431,6 +457,17 @@ function renderDetail(p){
   const panel = document.getElementById('detailPanel');
 
   const fieldsHtml = FIELDS.map(f=>{
+    if(f.key === 'ean_nummer'){
+      return `
+        <div class="field mono">
+          <label>${f.label}</label>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="f_ean_nummer" value="${escapeHtml(p.ean_nummer)}" style="flex:1;">
+            <button type="button" onclick="generiereEAN()" style="white-space:nowrap;padding:0 10px;border-radius:6px;border:1px solid var(--line);background:#F7F6F2;font-family:var(--sans);font-size:12px;cursor:pointer;">🔄 Generieren</button>
+          </div>
+        </div>
+      `;
+    }
     if(f.key === 'lagerplatz'){
       const belegtVon = {};
       produkte.forEach(other=>{
