@@ -197,11 +197,25 @@ let supabase = null;
 let produkte = [];
 let activeId = null;   // id des aktuell geöffneten Produkts, oder "new"
 
-const configured = !SUPABASE_URL.startsWith("DEINE_") && !SUPABASE_ANON_KEY.startsWith("DEIN_");
-if (configured) {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-} else {
-  document.getElementById('configBanner').style.display = 'block';
+function zeigeFehler(msg){
+  document.getElementById('countLabel').textContent = 'Fehler';
+  document.getElementById('prodList').innerHTML =
+    '<div class="empty-msg" style="color:#FF9D93;">' + msg + '</div>';
+}
+
+try {
+  if (typeof window.supabase === 'undefined') {
+    throw new Error('Supabase-Bibliothek konnte nicht geladen werden. Prüfe, ob ein VPN, Adblocker oder eine Browser-Erweiterung die Verbindung blockiert.');
+  }
+  const configured = !SUPABASE_URL.startsWith("DEINE_") && !SUPABASE_ANON_KEY.startsWith("DEIN_");
+  if (configured) {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } else {
+    document.getElementById('configBanner').style.display = 'block';
+  }
+} catch (err) {
+  console.error(err);
+  zeigeFehler(err.message);
 }
 
 const FIELDS = [
@@ -218,10 +232,15 @@ const FIELDS = [
 
 async function loadProdukte(){
   if(!supabase) return;
-  const {data, error} = await supabase.from('produkte').select('*').order('created_at', {ascending:false});
-  if(error){ console.error(error); return; }
-  produkte = data || [];
-  renderList();
+  try {
+    const {data, error} = await supabase.from('produkte').select('*').order('created_at', {ascending:false});
+    if(error){ console.error(error); zeigeFehler('Datenbankfehler: ' + error.message); return; }
+    produkte = data || [];
+    renderList();
+  } catch(err){
+    console.error(err);
+    zeigeFehler('Verbindung fehlgeschlagen: ' + err.message);
+  }
 }
 
 function renderList(){

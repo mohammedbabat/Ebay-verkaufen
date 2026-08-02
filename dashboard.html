@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --ink:#1E2A38;
+    --paper:#F4F4F1;
+    --card:#FFFFFF;
+    --line:#DDDCD5;
+    --text:#22262B;
+    --muted:#6B7280;
+    --teal:#3E7C7C;
+    --teal-dark:#2E5E5E;
+    --amber:#D98E3B;
+    --red:#C1483F;
+    --mono:'IBM Plex Mono', monospace;
+    --sans:'IBM Plex Sans', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--sans);background:var(--paper);color:var(--text);}
+  header{
+    background:var(--ink);color:#fff;padding:28px 32px;
+    border-bottom:3px solid var(--teal);
+  }
+  header h1{margin:0;font-size:22px;font-weight:600;}
+  header p{margin:6px 0 0 0;font-family:var(--mono);font-size:12px;color:#9FB0BE;letter-spacing:.5px;text-transform:uppercase;}
+
+  .grid{
+    max-width:900px;margin:36px auto;padding:0 24px;
+    display:grid;grid-template-columns:repeat(auto-fit, minmax(280px,1fr));gap:20px;
+  }
+  .lager-card{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:24px;text-decoration:none;color:var(--text);display:block;
+    transition:.15s transform, .15s border-color;
+  }
+  .lager-card:hover{border-color:var(--teal);transform:translateY(-2px);}
+  .lager-card .label{
+    font-family:var(--mono);font-size:11px;color:var(--teal-dark);letter-spacing:1px;
+    text-transform:uppercase;margin-bottom:6px;
+  }
+  .lager-card h2{margin:0 0 16px 0;font-size:19px;}
+  .stat-row{display:flex;gap:22px;}
+  .stat{display:flex;flex-direction:column;}
+  .stat .num{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--ink);}
+  .stat .num.low{color:var(--red);}
+  .stat .lbl{font-size:11px;color:var(--muted);margin-top:2px;}
+  .go{margin-top:18px;font-size:13px;color:var(--teal-dark);font-weight:600;}
+  .err{color:var(--red);font-size:13px;margin-top:10px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Dashboard</h1>
+  <p>Übersicht deiner Produkt-Lager</p>
+</header>
+
+<div class="grid" id="grid"></div>
+
+<script>
+/* =========== KONFIGURATION ===========
+   Trage hier für JEDES Lager URL, Key, Dateiname und Titel ein.
+   Der "file"-Wert muss exakt dem Dateinamen der jeweiligen App
+   entsprechen (z.B. "lager1.html").
+======================================= */
+const LAGER = [
+  {
+    titel: "Lager 1",
+    datei: "lager1.html",
+    url: "DEINE_SUPABASE_URL_HIER",
+    key: "DEIN_SUPABASE_PUBLISHABLE_KEY_HIER"
+  },
+  {
+    titel: "Lager 2",
+    datei: "lager2.html",
+    url: "https://nrsmzonjqspnsfbhvaus.supabase.co",
+    key: "sb_publishable_BHyuPLdhMIV2f3n1roJYcQ_N2V_rxsl"
+  }
+];
+/* ====================================== */
+
+const grid = document.getElementById('grid');
+
+async function ladeKarte(lager){
+  const card = document.createElement('a');
+  card.className = 'lager-card';
+  card.href = lager.datei;
+  card.innerHTML = `
+    <div class="label">Produkt-Lager</div>
+    <h2>${lager.titel}</h2>
+    <div class="stat-row" id="stats-${lager.datei}">
+      <div class="stat"><span class="num">…</span><span class="lbl">lädt</span></div>
+    </div>
+    <div class="go">Öffnen →</div>
+  `;
+  grid.appendChild(card);
+
+  const configured = !lager.url.startsWith("DEINE_") && !lager.key.startsWith("DEIN_");
+  const statsEl = card.querySelector(`#stats-${lager.datei}`);
+  if(!configured){
+    statsEl.innerHTML = '<div class="err">Noch nicht konfiguriert</div>';
+    return;
+  }
+
+  try {
+    const client = window.supabase.createClient(lager.url, lager.key);
+    const { count, error } = await client.from('produkte').select('*', {count:'exact', head:true});
+    if(error) throw error;
+
+    const { data: bestandData } = await client.from('produkte').select('bestand');
+    const niedrig = (bestandData||[]).filter(r => r.bestand !== null && Number(r.bestand) <= 5).length;
+
+    statsEl.innerHTML = `
+      <div class="stat"><span class="num">${count ?? 0}</span><span class="lbl">Artikel</span></div>
+      <div class="stat"><span class="num ${niedrig>0?'low':''}">${niedrig}</span><span class="lbl">Niedriger Bestand</span></div>
+    `;
+  } catch(err){
+    console.error(err);
+    statsEl.innerHTML = `<div class="err">Verbindung fehlgeschlagen</div>`;
+  }
+}
+
+LAGER.forEach(ladeKarte);
+</script>
+</body>
+</html>

@@ -181,15 +181,11 @@
 
 <script>
 /* ================= KONFIGURATION ==================
-   Zugangsdaten für Projekt 2 eintragen.
-   Zu finden in Supabase: Project Settings -> API Keys
-   - SUPABASE_URL      = "Project URL"
-   - SUPABASE_ANON_KEY = "Publishable key" (beginnt mit sb_publishable_...)
-     (Nicht den "Secret key" verwenden! Der darf niemals in einer
-      Webapp/im Browser stehen, nur der Publishable/Anon-Key.)
+   Trage hier deine Supabase-Projektdaten ein.
+   Zu finden in Supabase: Project Settings -> API
 ==================================================== */
-const SUPABASE_URL = "https://nrsmzonjqspnsfbhvaus.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_BHyuPLdhMIV2f3n1roJYcQ_N2V_rxsl";
+const SUPABASE_URL = "DEINE_SUPABASE_URL_HIER";
+const SUPABASE_ANON_KEY = "DEIN_SUPABASE_ANON_KEY_HIER";
 /* ==================================================== */
 
 const BUCKET = "produktbilder";
@@ -197,11 +193,25 @@ let supabase = null;
 let produkte = [];
 let activeId = null;   // id des aktuell geöffneten Produkts, oder "new"
 
-const configured = !SUPABASE_URL.startsWith("DEINE_") && !SUPABASE_ANON_KEY.startsWith("DEIN_");
-if (configured) {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-} else {
-  document.getElementById('configBanner').style.display = 'block';
+function zeigeFehler(msg){
+  document.getElementById('countLabel').textContent = 'Fehler';
+  document.getElementById('prodList').innerHTML =
+    '<div class="empty-msg" style="color:#FF9D93;">' + msg + '</div>';
+}
+
+try {
+  if (typeof window.supabase === 'undefined') {
+    throw new Error('Supabase-Bibliothek konnte nicht geladen werden. Prüfe, ob ein VPN, Adblocker oder eine Browser-Erweiterung die Verbindung blockiert.');
+  }
+  const configured = !SUPABASE_URL.startsWith("DEINE_") && !SUPABASE_ANON_KEY.startsWith("DEIN_");
+  if (configured) {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } else {
+    document.getElementById('configBanner').style.display = 'block';
+  }
+} catch (err) {
+  console.error(err);
+  zeigeFehler(err.message);
 }
 
 const FIELDS = [
@@ -218,10 +228,15 @@ const FIELDS = [
 
 async function loadProdukte(){
   if(!supabase) return;
-  const {data, error} = await supabase.from('produkte').select('*').order('created_at', {ascending:false});
-  if(error){ console.error(error); return; }
-  produkte = data || [];
-  renderList();
+  try {
+    const {data, error} = await supabase.from('produkte').select('*').order('created_at', {ascending:false});
+    if(error){ console.error(error); zeigeFehler('Datenbankfehler: ' + error.message); return; }
+    produkte = data || [];
+    renderList();
+  } catch(err){
+    console.error(err);
+    zeigeFehler('Verbindung fehlgeschlagen: ' + err.message);
+  }
 }
 
 function renderList(){
