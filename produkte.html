@@ -655,10 +655,10 @@ window.deleteImage = async function(produktId, url){
   if(error){ alert('Fehler beim Löschen: '+error.message); return; }
   await loadProdukte();
   openProdukt(produktId);
-}
+};
 
 // Start
-(async ()=>{
+;(async ()=>{
   const info = await schuetzeSeite(['admin','hinzufuegen','alle']);
   if(!info) return;
   document.getElementById('userBox').innerHTML =

@@ -203,7 +203,7 @@ function renderWand(){
   cards[2].textContent = gesamt - belegt;
 }
 
-(async ()=>{
+;(async ()=>{
   const info = await schuetzeSeite(['admin','ausgabe','hinzufuegen','alle']);
   if(!info) return;
   document.getElementById('userBox').innerHTML =

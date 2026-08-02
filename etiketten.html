@@ -222,7 +222,7 @@ document.getElementById('druckenBtn').addEventListener('click', ()=>{
   setTimeout(()=>window.print(), 200);
 });
 
-(async ()=>{
+;(async ()=>{
   const info = await schuetzeSeite(['admin','hinzufuegen','alle']);
   if(!info) return;
   document.getElementById('userBox').innerHTML =

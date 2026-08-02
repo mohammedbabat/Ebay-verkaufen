@@ -356,7 +356,7 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
   URL.revokeObjectURL(url);
 });
 
-(async ()=>{
+;(async ()=>{
   const info = await schuetzeSeite(['admin','ausgabe','hinzufuegen','alle']);
   if(!info) return;
   document.getElementById('userBox').innerHTML =
