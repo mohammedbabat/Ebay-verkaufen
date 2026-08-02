@@ -79,6 +79,12 @@
   tbody tr:last-child td{border-bottom:none;}
   tbody tr:hover{background:#FAF9F6;}
   .art-cell{font-family:var(--mono);font-size:12px;color:var(--muted);}
+  .thumb{width:40px;height:40px;border-radius:6px;object-fit:cover;display:block;background:#EEECE6;}
+  .thumb-placeholder{
+    width:40px;height:40px;border-radius:6px;background:#EEECE6;
+    display:flex;align-items:center;justify-content:center;font-size:16px;color:#B7B5AC;
+  }
+  tbody tr{cursor:pointer;}
   .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;}
   .dot.low{background:var(--red);}
   .dot.mid{background:var(--amber);}
@@ -140,6 +146,7 @@
       <thead>
         <tr>
           <th></th>
+          <th>Bild</th>
           <th>Artikel-Nr</th>
           <th>Beschreibung</th>
           <th>Bestand</th>
@@ -252,9 +259,15 @@ function renderTabelle(){
     return;
   }
 
-  body.innerHTML = gefiltert.map(p=>`
-    <tr>
+  body.innerHTML = gefiltert.map(p=>{
+    const erstesBild = (p.bilder && p.bilder.length > 0) ? p.bilder[0] : null;
+    const bildHtml = erstesBild
+      ? `<img class="thumb" src="${erstesBild}" loading="lazy">`
+      : `<div class="thumb-placeholder">📦</div>`;
+    return `
+    <tr onclick="location.href='produkte.html?id=${p.id}'">
       <td><span class="dot ${bestandsKlasse(p.bestand)}"></span></td>
+      <td>${bildHtml}</td>
       <td class="art-cell">${escapeHtml(p.artikel_nummer||'—')}</td>
       <td>${escapeHtml(p.beschreibung||'—').split('\\n')[0].slice(0,70)}</td>
       <td class="price">${p.bestand ?? '—'}</td>
@@ -262,7 +275,8 @@ function renderTabelle(){
       <td class="price">${fmtPreis(p.amazon_preis)}</td>
       <td class="price">${fmtPreis(p.endeinkaufspreis)}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 }
 
 document.getElementById('searchInput').addEventListener('input', renderTabelle);

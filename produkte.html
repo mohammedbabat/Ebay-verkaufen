@@ -269,9 +269,18 @@ async function loadProdukte(){
     if(error){ console.error(error); zeigeFehler('Datenbankfehler: ' + error.message); return; }
     produkte = data || [];
     renderList();
+    oeffneProduktAusUrl();
   } catch(err){
     console.error(err);
     zeigeFehler('Verbindung fehlgeschlagen: ' + err.message);
+  }
+}
+
+function oeffneProduktAusUrl(){
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id');
+  if(id && produkte.some(p => p.id === id)){
+    openProdukt(id);
   }
 }
 
