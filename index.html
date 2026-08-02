@@ -10,6 +10,7 @@
 <style>
   :root{
     --ink:#1E2A38;
+    --ink-2:#28384A;
     --paper:#F4F4F1;
     --card:#FFFFFF;
     --line:#DDDCD5;
@@ -19,115 +20,263 @@
     --teal-dark:#2E5E5E;
     --amber:#D98E3B;
     --red:#C1483F;
+    --green:#4C8C5B;
     --mono:'IBM Plex Mono', monospace;
     --sans:'IBM Plex Sans', sans-serif;
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:var(--sans);background:var(--paper);color:var(--text);}
+
+  #configBanner{
+    display:none;background:var(--red);color:#fff;padding:12px 20px;font-size:14px;
+  }
+  #configBanner code{background:rgba(255,255,255,.2);padding:2px 6px;border-radius:4px;}
+
   header{
-    background:var(--ink);color:#fff;padding:28px 32px;
+    background:var(--ink);color:#fff;padding:22px 32px;
+    display:flex;align-items:center;justify-content:space-between;
     border-bottom:3px solid var(--teal);
   }
-  header h1{margin:0;font-size:22px;font-weight:600;}
-  header p{margin:6px 0 0 0;font-family:var(--mono);font-size:12px;color:#9FB0BE;letter-spacing:.5px;text-transform:uppercase;}
+  header h1{margin:0;font-size:20px;font-weight:600;}
+  header .tag{font-family:var(--mono);font-size:11px;color:var(--teal);letter-spacing:1px;text-transform:uppercase;margin-left:10px;}
+  .btn-manage{
+    background:var(--teal);color:#fff;text-decoration:none;padding:10px 18px;
+    border-radius:6px;font-weight:600;font-size:13px;
+  }
+  .btn-manage:hover{background:var(--teal-dark);}
 
-  .grid{
-    max-width:900px;margin:36px auto;padding:0 24px;
-    display:grid;grid-template-columns:repeat(auto-fit, minmax(280px,1fr));gap:20px;
+  .wrap{max-width:1100px;margin:0 auto;padding:28px 24px 60px;}
+
+  /* KPI cards */
+  .kpi-row{display:grid;grid-template-columns:repeat(auto-fit, minmax(160px,1fr));gap:16px;margin-bottom:28px;}
+  .kpi{
+    background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:18px 20px;
   }
-  .lager-card{
-    background:var(--card);border:1px solid var(--line);border-radius:12px;
-    padding:24px;text-decoration:none;color:var(--text);display:block;
-    transition:.15s transform, .15s border-color;
+  .kpi .num{font-family:var(--mono);font-size:30px;font-weight:600;}
+  .kpi .lbl{font-size:12px;color:var(--muted);margin-top:4px;}
+  .kpi.total .num{color:var(--ink);}
+  .kpi.red .num{color:var(--red);}
+  .kpi.yellow .num{color:var(--amber);}
+  .kpi.green .num{color:var(--green);}
+  .kpi.value .num{color:var(--teal-dark);font-size:22px;}
+
+  /* Section */
+  .section-title{
+    font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);
+    font-weight:600;margin:0 0 12px 2px;
   }
-  .lager-card:hover{border-color:var(--teal);transform:translateY(-2px);}
-  .lager-card .label{
-    font-family:var(--mono);font-size:11px;color:var(--teal-dark);letter-spacing:1px;
-    text-transform:uppercase;margin-bottom:6px;
+
+  /* Product table */
+  .table-card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:28px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{
+    text-align:left;background:#F7F6F2;color:var(--muted);font-weight:600;
+    font-size:11px;text-transform:uppercase;letter-spacing:.5px;
+    padding:10px 14px;border-bottom:1px solid var(--line);
   }
-  .lager-card h2{margin:0 0 16px 0;font-size:19px;}
-  .stat-row{display:flex;gap:22px;}
-  .stat{display:flex;flex-direction:column;}
-  .stat .num{font-family:var(--mono);font-size:26px;font-weight:600;color:var(--ink);}
-  .stat .num.low{color:var(--red);}
-  .stat .lbl{font-size:11px;color:var(--muted);margin-top:2px;}
-  .go{margin-top:18px;font-size:13px;color:var(--teal-dark);font-weight:600;}
-  .err{color:var(--red);font-size:13px;margin-top:10px;}
+  tbody td{padding:10px 14px;border-bottom:1px solid #EFEDE7;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#FAF9F6;}
+  .art-cell{font-family:var(--mono);font-size:12px;color:var(--muted);}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;}
+  .dot.low{background:var(--red);}
+  .dot.mid{background:var(--amber);}
+  .dot.good{background:var(--green);}
+  .dot.none{background:#C9C7BE;}
+  .price{font-family:var(--mono);}
+  .search-row{margin-bottom:14px;}
+  .search-row input{
+    width:100%;max-width:340px;padding:9px 12px;border:1px solid var(--line);
+    border-radius:6px;font-family:var(--sans);font-size:13px;background:#FFF;
+  }
+  .empty-msg{color:var(--muted);font-size:13px;text-align:center;padding:30px;}
+  .filter-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .filter-btn{
+    border:1px solid var(--line);background:#fff;border-radius:20px;padding:6px 14px;
+    font-size:12px;cursor:pointer;font-family:var(--sans);color:var(--text);
+  }
+  .filter-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
 </style>
 </head>
 <body>
 
+<div id="configBanner">
+  ⚠ Supabase ist noch nicht verbunden. Trage SUPABASE_URL und SUPABASE_ANON_KEY im Code ein.
+</div>
+
 <header>
-  <h1>Dashboard</h1>
-  <p>Übersicht deiner Produkt-Lager</p>
+  <div>
+    <span style="display:flex;align-items:baseline;">
+      <h1>Dashboard</h1><span class="tag">Produkt-Lager</span>
+    </span>
+  </div>
+  <a class="btn-manage" href="produkte.html">+ Produkte verwalten</a>
 </header>
 
-<div class="grid" id="grid"></div>
+<div class="wrap">
+
+  <div class="kpi-row" id="kpiRow">
+    <div class="kpi total"><div class="num">…</div><div class="lbl">Artikel gesamt</div></div>
+    <div class="kpi red"><div class="num">…</div><div class="lbl">🔴 Kritisch (&lt; 3)</div></div>
+    <div class="kpi yellow"><div class="num">…</div><div class="lbl">🟡 Niedrig (3–5)</div></div>
+    <div class="kpi green"><div class="num">…</div><div class="lbl">🟢 Ausreichend (&gt; 5)</div></div>
+    <div class="kpi value"><div class="num">…</div><div class="lbl">Lagerwert (Einkauf)</div></div>
+  </div>
+
+  <div class="section-title">Alle Produkte</div>
+  <div class="search-row">
+    <input type="text" id="searchInput" placeholder="Suche: Artikel-Nr, EAN, Text …">
+  </div>
+  <div class="filter-row" id="filterRow">
+    <button class="filter-btn active" data-f="all">Alle</button>
+    <button class="filter-btn" data-f="low">🔴 Kritisch</button>
+    <button class="filter-btn" data-f="mid">🟡 Niedrig</button>
+    <button class="filter-btn" data-f="good">🟢 Ausreichend</button>
+  </div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th>Artikel-Nr</th>
+          <th>Beschreibung</th>
+          <th>Bestand</th>
+          <th>Ebay-Preis</th>
+          <th>Amazon-Preis</th>
+          <th>Endeinkaufpreis</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+</div>
 
 <script>
-/* =========== KONFIGURATION ===========
-   Trage hier für JEDES Lager URL, Key, Dateiname und Titel ein.
-   Der "file"-Wert muss exakt dem Dateinamen der jeweiligen App
-   entsprechen (z.B. "lager1.html").
-======================================= */
-const LAGER = [
-  {
-    titel: "Lager 1",
-    datei: "lager1.html",
-    url: "DEINE_SUPABASE_URL_HIER",
-    key: "DEIN_SUPABASE_PUBLISHABLE_KEY_HIER"
-  },
-  {
-    titel: "Lager 2",
-    datei: "lager2.html",
-    url: "https://nrsmzonjqspnsfbhvaus.supabase.co",
-    key: "sb_publishable_BHyuPLdhMIV2f3n1roJYcQ_N2V_rxsl"
+/* ================= KONFIGURATION ==================
+   Gleiche Zugangsdaten wie in produkte.html eintragen.
+==================================================== */
+const SUPABASE_URL = "https://nrsmzonjqspnsfbhvaus.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_BHyuPLdhMIV2f3n1roJYcQ_N2V_rxsl";
+/* ==================================================== */
+
+let supabase = null;
+let produkte = [];
+let aktiverFilter = 'all';
+
+function zeigeFehler(msg){
+  document.getElementById('tableBody').innerHTML =
+    `<tr><td colspan="7" class="empty-msg" style="color:#C1483F;">${msg}</td></tr>`;
+}
+
+try {
+  if (typeof window.supabase === 'undefined') {
+    throw new Error('Supabase-Bibliothek konnte nicht geladen werden. Prüfe VPN/Adblocker.');
   }
-];
-/* ====================================== */
-
-const grid = document.getElementById('grid');
-
-async function ladeKarte(lager){
-  const card = document.createElement('a');
-  card.className = 'lager-card';
-  card.href = lager.datei;
-  card.innerHTML = `
-    <div class="label">Produkt-Lager</div>
-    <h2>${lager.titel}</h2>
-    <div class="stat-row" id="stats-${lager.datei}">
-      <div class="stat"><span class="num">…</span><span class="lbl">lädt</span></div>
-    </div>
-    <div class="go">Öffnen →</div>
-  `;
-  grid.appendChild(card);
-
-  const configured = !lager.url.startsWith("DEINE_") && !lager.key.startsWith("DEIN_");
-  const statsEl = card.querySelector(`#stats-${lager.datei}`);
-  if(!configured){
-    statsEl.innerHTML = '<div class="err">Noch nicht konfiguriert</div>';
-    return;
+  const configured = !SUPABASE_URL.startsWith("DEINE_") && !SUPABASE_ANON_KEY.startsWith("DEIN_");
+  if (configured) {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } else {
+    document.getElementById('configBanner').style.display = 'block';
   }
+} catch(err){
+  console.error(err);
+  zeigeFehler(err.message);
+}
 
+function bestandsKlasse(wert){
+  if(wert === null || wert === undefined || wert === '') return 'none';
+  const b = Number(wert);
+  if(isNaN(b)) return 'none';
+  if(b < 3) return 'low';
+  if(b <= 5) return 'mid';
+  return 'good';
+}
+
+function escapeHtml(str){
+  if(str===null||str===undefined) return '';
+  return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function fmtPreis(v){
+  if(v===null||v===undefined||v==='') return '—';
+  const n = Number(v);
+  return isNaN(n) ? escapeHtml(v) : n.toFixed(2).replace('.', ',') + ' €';
+}
+
+async function laden(){
+  if(!supabase) return;
   try {
-    const client = window.supabase.createClient(lager.url, lager.key);
-    const { count, error } = await client.from('produkte').select('*', {count:'exact', head:true});
-    if(error) throw error;
-
-    const { data: bestandData } = await client.from('produkte').select('bestand');
-    const niedrig = (bestandData||[]).filter(r => r.bestand !== null && Number(r.bestand) <= 5).length;
-
-    statsEl.innerHTML = `
-      <div class="stat"><span class="num">${count ?? 0}</span><span class="lbl">Artikel</span></div>
-      <div class="stat"><span class="num ${niedrig>0?'low':''}">${niedrig}</span><span class="lbl">Niedriger Bestand</span></div>
-    `;
+    const {data, error} = await supabase.from('produkte').select('*').order('artikel_nummer', {ascending:true});
+    if(error){ zeigeFehler('Datenbankfehler: ' + error.message); return; }
+    produkte = data || [];
+    renderKpis();
+    renderTabelle();
   } catch(err){
-    console.error(err);
-    statsEl.innerHTML = `<div class="err">Verbindung fehlgeschlagen</div>`;
+    zeigeFehler('Verbindung fehlgeschlagen: ' + err.message);
   }
 }
 
-LAGER.forEach(ladeKarte);
+function renderKpis(){
+  const total = produkte.length;
+  const rot = produkte.filter(p=>bestandsKlasse(p.bestand)==='low').length;
+  const gelb = produkte.filter(p=>bestandsKlasse(p.bestand)==='mid').length;
+  const gruen = produkte.filter(p=>bestandsKlasse(p.bestand)==='good').length;
+  const lagerwert = produkte.reduce((sum,p)=>{
+    const preis = Number(p.endeinkaufspreis) || 0;
+    const menge = Number(p.bestand) || 0;
+    return sum + (preis*menge);
+  }, 0);
+
+  const cards = document.querySelectorAll('#kpiRow .kpi .num');
+  cards[0].textContent = total;
+  cards[1].textContent = rot;
+  cards[2].textContent = gelb;
+  cards[3].textContent = gruen;
+  cards[4].textContent = lagerwert.toFixed(2).replace('.', ',') + ' €';
+}
+
+function renderTabelle(){
+  const term = document.getElementById('searchInput').value.trim().toLowerCase();
+  let gefiltert = produkte.filter(p=>{
+    if(aktiverFilter !== 'all' && bestandsKlasse(p.bestand) !== aktiverFilter) return false;
+    if(!term) return true;
+    return [p.artikel_nummer, p.ean_nummer, p.beschreibung].join(' ').toLowerCase().includes(term);
+  });
+
+  const body = document.getElementById('tableBody');
+  if(gefiltert.length === 0){
+    body.innerHTML = '<tr><td colspan="7" class="empty-msg">Keine Produkte gefunden.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = gefiltert.map(p=>`
+    <tr>
+      <td><span class="dot ${bestandsKlasse(p.bestand)}"></span></td>
+      <td class="art-cell">${escapeHtml(p.artikel_nummer||'—')}</td>
+      <td>${escapeHtml(p.beschreibung||'—').split('\\n')[0].slice(0,70)}</td>
+      <td class="price">${p.bestand ?? '—'}</td>
+      <td class="price">${fmtPreis(p.ebay_preis)}</td>
+      <td class="price">${fmtPreis(p.amazon_preis)}</td>
+      <td class="price">${fmtPreis(p.endeinkaufspreis)}</td>
+    </tr>
+  `).join('');
+}
+
+document.getElementById('searchInput').addEventListener('input', renderTabelle);
+
+document.getElementById('filterRow').addEventListener('click', (e)=>{
+  const btn = e.target.closest('.filter-btn');
+  if(!btn) return;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  aktiverFilter = btn.dataset.f;
+  renderTabelle();
+});
+
+laden();
 </script>
 </body>
 </html>
